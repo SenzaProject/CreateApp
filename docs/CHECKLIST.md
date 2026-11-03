@@ -1,0 +1,106 @@
+# CREATE APP — CHECKLIST PELAKSANAAN
+
+Gunakan checklist ini untuk melacak progres. Tandai hanya setelah bukti implementasi dan pengujian tersedia.
+
+## Tahap 1 — Arsitektur
+- [ ] Struktur proyek dan modul
+- [ ] Gradle, SDK, Compose
+- [ ] Navigasi dan komponen bersama
+- [ ] Logging dan error handling
+- [ ] Debug APK berhasil dipasang
+
+## Tahap 2 — UI dasar
+- [ ] Splash
+- [ ] Dashboard
+- [ ] Project Manager
+- [ ] Editor awal
+- [ ] Navigasi dan tema
+
+## Tahap 3 — Project/File Explorer
+- [ ] Buat/buka proyek
+- [ ] Operasi file/folder
+- [ ] Persistensi
+- [ ] SAF dan izin
+- [ ] Uji pemulihan data
+
+## Tahap 4 — Code Editor
+- [ ] Syntax highlighting
+- [ ] Line numbers dan indentasi
+- [ ] Search/replace
+- [ ] Undo/redo dan multi-tab
+- [ ] Auto-save dan uji file besar
+
+## Tahap 5 — Termux
+- [ ] Deteksi Termux
+- [ ] Izin dan integrasi resmi
+- [ ] Jalankan perintah
+- [ ] Output/error/history
+- [ ] Pembatalan proses
+
+## Tahap 6 — Gradle Build
+- [ ] Gradle Wrapper
+- [ ] Debug build
+- [ ] Release build
+- [ ] AAB build
+- [ ] Log/progress/cancel
+
+## Tahap 7 — APK Manager
+- [ ] Daftar artefak
+- [ ] Detail APK/AAB
+- [ ] Install/share/export
+- [ ] Riwayat build
+
+## Tahap 8 — Signing
+- [ ] Buat/impor keystore
+- [ ] Signing APK/AAB
+- [ ] Verifikasi signature
+- [ ] Proteksi secret dan backup
+
+## Tahap 9 — GitHub
+- [ ] Autentikasi aman
+- [ ] Repository
+- [ ] Clone/commit/push/pull
+- [ ] Branch/merge/sync
+- [ ] Konflik dan keamanan token
+
+## Tahap 10 — Cloud Build
+- [ ] Workflow
+- [ ] Trigger workflow
+- [ ] Status dan log
+- [ ] Download artefak
+- [ ] Verifikasi hasil
+
+## Tahap 11 — Error Analyzer/AI
+- [ ] Parser error
+- [ ] Lokasi error
+- [ ] Saran perbaikan
+- [ ] Preview diff
+- [ ] Persetujuan pengguna
+
+## Tahap 12 — Preview/Device Tools
+- [ ] Preview
+- [ ] Informasi perangkat
+- [ ] Install dan jalankan APK
+- [ ] Screenshot
+- [ ] Uji kompatibilitas
+
+## Tahap 13 — Settings/Security
+- [ ] Tema dan bahasa
+- [ ] Pengaturan editor/build
+- [ ] Backup/restore
+- [ ] Izin dan secret
+- [ ] Uji performa
+
+## Tahap 14 — QA
+- [ ] Unit/UI/integration tests
+- [ ] Debug/release build
+- [ ] Install/signing test
+- [ ] Storage/security/performance
+- [ ] Regression dan crash test
+
+## Tahap 15 — Release
+- [ ] Alpha
+- [ ] Closed Beta
+- [ ] Release Candidate
+- [ ] Stable 1.0
+- [ ] Dokumentasi dan changelog

@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Create App</string>
+
+    <!-- Navigasi -->
+    <string name="nav_home">Beranda</string>
+    <string name="nav_projects">Proyek</string>
+    <string name="nav_build">Build</string>
+    <string name="nav_github">GitHub</string>
+    <string name="nav_settings">Pengaturan</string>
+    <string name="title_editor">Editor</string>
+    <string name="title_terminal">Terminal</string>
+    <string name="action_back">Kembali</string>
+    <string name="action_retry">Coba lagi</string>
+
+    <!-- Layar yang belum diimplementasikan -->
+    <string name="placeholder_not_available">Fitur ini belum tersedia</string>
+    <string name="placeholder_planned_stage">Dijadwalkan pada Tahap %1$d</string>
+    <string name="placeholder_projects_desc">Pembuatan, pembukaan, dan pengelolaan proyek Android beserta file explorer.</string>
+    <string name="placeholder_editor_desc">Editor kode dengan syntax highlighting, pencarian, undo/redo, dan multi-tab.</string>
+    <string name="placeholder_build_desc">Build Gradle nyata (debug, release, AAB) dengan log, progres, dan pembatalan.</string>
+    <string name="placeholder_terminal_desc">Terminal developer dan integrasi Termux melalui mekanisme resmi.</string>
+    <string name="placeholder_github_desc">Autentikasi aman, clone, commit, push, pull, dan manajemen branch.</string>
+
+    <!-- Beranda -->
+    <string name="home_welcome_title">Selamat datang di Create App</string>
+    <string name="home_welcome_subtitle">IDE Android dan APK Builder di perangkat Anda.</string>
+    <string name="home_shortcuts_title">Pintasan</string>
+    <string name="home_open_editor">Buka Editor</string>
+    <string name="home_open_terminal">Buka Terminal</string>
+    <string name="home_foundation_title">Informasi aplikasi</string>
+    <string name="home_modules_title">Status modul</string>
+    <string name="home_loading">Memuat informasi aplikasi…</string>
+    <string name="home_error">Gagal memuat informasi aplikasi.</string>
+
+    <!-- Diagnostik -->
+    <string name="diag_version">Versi</string>
+    <string name="diag_package">Paket</string>
+    <string name="diag_build_type">Tipe build</string>
+    <string name="diag_android">Android</string>
+    <string name="diag_android_value">Android %1$s (API %2$d)</string>
+    <string name="diag_device">Perangkat</string>
+    <string name="diag_abi">ABI</string>
+    <string name="build_type_debug">Debug</string>
+    <string name="build_type_release">Release</string>
+
+    <!-- Status modul -->
+    <string name="status_ready">Siap</string>
+    <string name="status_in_progress">Dikerjakan</string>
+    <string name="status_planned">Direncanakan</string>
+    <string name="module_stage">Tahap %1$d</string>
+
+    <!-- Laporan crash -->
+    <string name="crash_title">Crash terakhir terdeteksi</string>
+    <string name="crash_desc">Aplikasi berhenti tidak terduga pada sesi sebelumnya. Rincian teknis:</string>
+    <string name="crash_clear">Hapus laporan</string>
+
+    <!-- Pengaturan -->
+    <string name="settings_about_title">Tentang Create App</string>
+    <string name="settings_developer">Pengembang</string>
+    <string name="settings_version">Versi</string>
+    <string name="settings_repository">Repositori</string>
+    <string name="settings_more_soon">Pengaturan tema, bahasa, editor, build, dan penyimpanan dijadwalkan pada Tahap 13.</string>
+</resources>

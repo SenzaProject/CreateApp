@@ -1,0 +1,30 @@
+# Gradle / build
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
+
+# IDE
+.idea/
+*.iml
+.DS_Store
+
+# Rahasia: JANGAN PERNAH di-commit
+*.jks
+*.keystore
+keystore.properties
+signing.properties
+*.pem
+.env
+*.token
+
+# Artefak hasil build
+*.apk
+*.aab
+*.ap_
+
+# Log / crash lokal
+*.log
