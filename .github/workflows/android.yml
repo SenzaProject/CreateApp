@@ -28,8 +28,8 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Siapkan Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Terima lisensi Android SDK
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
 
       - name: Siapkan Gradle
         uses: gradle/actions/setup-gradle@v4
