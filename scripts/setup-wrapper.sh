@@ -19,6 +19,7 @@ fi
 # versi Gradle yang terpasang dengan plugin proyek.
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
+touch "$TMP/settings.gradle"
 ( cd "$TMP" && gradle wrapper --gradle-version "$GRADLE_VERSION" --distribution-type bin )
 
 mkdir -p "$ROOT/gradle/wrapper"
