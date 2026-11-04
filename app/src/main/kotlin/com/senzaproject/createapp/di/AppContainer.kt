@@ -12,6 +12,7 @@ import com.senzaproject.createapp.core.common.DefaultAppDispatchers
 import com.senzaproject.createapp.core.common.LogFileSink
 import com.senzaproject.createapp.core.editor.EditorModule
 import com.senzaproject.createapp.core.git.GitModule
+import com.senzaproject.createapp.core.project.EmptyProjectRepository
 import com.senzaproject.createapp.core.project.ProjectModule
 import com.senzaproject.createapp.core.terminal.TerminalModule
 import com.senzaproject.createapp.data.DataModule
@@ -24,6 +25,8 @@ import com.senzaproject.createapp.domain.logging.Logger
 import com.senzaproject.createapp.domain.module.DomainModule
 import com.senzaproject.createapp.domain.module.ModuleInfo
 import com.senzaproject.createapp.domain.module.ModuleStatus
+import com.senzaproject.createapp.domain.project.ObserveProjectsUseCase
+import com.senzaproject.createapp.domain.project.ProjectRepository
 import java.io.File
 
 /**
@@ -74,4 +77,9 @@ class AppContainer(application: Application) {
     )
 
     val getAppDiagnostics = GetAppDiagnosticsUseCase(diagnosticsRepository)
+
+    /** Sementara kosong sampai penyimpanan proyek nyata dibuat pada Tahap 3. */
+    private val projectRepository: ProjectRepository = EmptyProjectRepository()
+
+    val observeProjects = ObserveProjectsUseCase(projectRepository)
 }

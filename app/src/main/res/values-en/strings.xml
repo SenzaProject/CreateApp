@@ -16,8 +16,6 @@
     <!-- Screens not implemented yet -->
     <string name="placeholder_not_available">This feature is not available yet</string>
     <string name="placeholder_planned_stage">Planned for Stage %1$d</string>
-    <string name="placeholder_projects_desc">Create, open, and manage Android projects with a file explorer.</string>
-    <string name="placeholder_editor_desc">Code editor with syntax highlighting, search, undo/redo, and multiple tabs.</string>
     <string name="placeholder_build_desc">Real Gradle builds (debug, release, AAB) with logs, progress, and cancellation.</string>
     <string name="placeholder_terminal_desc">Developer terminal and Termux integration through the official mechanism.</string>
     <string name="placeholder_github_desc">Secure authentication, clone, commit, push, pull, and branch management.</string>
@@ -25,12 +23,8 @@
     <!-- Home -->
     <string name="home_welcome_title">Welcome to Create App</string>
     <string name="home_welcome_subtitle">Android IDE and APK Builder on your device.</string>
-    <string name="home_shortcuts_title">Shortcuts</string>
-    <string name="home_open_editor">Open Editor</string>
-    <string name="home_open_terminal">Open Terminal</string>
     <string name="home_foundation_title">App information</string>
     <string name="home_modules_title">Module status</string>
-    <string name="home_loading">Loading app information…</string>
     <string name="home_error">Failed to load app information.</string>
 
     <!-- Diagnostics -->
@@ -61,4 +55,40 @@
     <string name="settings_version">Version</string>
     <string name="settings_repository">Repository</string>
     <string name="settings_more_soon">Theme, language, editor, build, and storage settings are planned for Stage 13.</string>
+    <!-- Splash -->
+    <string name="splash_tagline">Build • Code • Innovate</string>
+    <string name="splash_loading">Loading app…</string>
+
+    <!-- Dashboard -->
+    <string name="home_recent_title">Recent Projects</string>
+    <string name="home_see_all">See all</string>
+    <string name="home_recent_empty_title">No projects yet</string>
+    <string name="home_recent_empty_desc">Creating and opening projects will be available in Stage 3.</string>
+    <string name="tile_new_project">New Project</string>
+    <string name="tile_open_project">Open Project</string>
+    <string name="tile_editor">Editor</string>
+    <string name="tile_build_apk">Build APK</string>
+    <string name="tile_terminal">Terminal</string>
+    <string name="tile_github">GitHub</string>
+    <string name="tile_stage">Stage %1$d</string>
+    <string name="tile_editor_basic">Basic editor</string>
+
+    <!-- Project Manager -->
+    <string name="projects_search_hint">Search projects</string>
+    <string name="projects_search_clear">Clear search</string>
+    <string name="projects_filter_all">All</string>
+    <string name="projects_filter_recent">Recent</string>
+    <string name="projects_filter_favorites">Favorites</string>
+    <string name="projects_empty_title">No projects yet</string>
+    <string name="projects_empty_desc">Creating, opening, and managing projects will be available in Stage 3.</string>
+    <string name="projects_no_results">No matching projects.</string>
+    <string name="project_favorite">Favorite</string>
+
+    <!-- Basic editor -->
+    <string name="editor_tab_scratch">Scratch buffer</string>
+    <string name="editor_notice">Basic editor: text is not saved to a file. File saving is planned for Stage 3, full editor features for Stage 4.</string>
+    <string name="editor_hint">Type text or code here…</string>
+    <string name="editor_status_position">Line %1$d, Col %2$d</string>
+    <string name="editor_status_lines">%1$d lines</string>
+    <string name="editor_status_chars">%1$d characters</string>
 </resources>

@@ -8,7 +8,7 @@
   Android IDE &amp; APK Builder — dikembangkan oleh <b>SenzaProject</b>
 </p>
 
-> **Status: Tahap 1 (fondasi) — kode ditulis, menunggu verifikasi build.**
+> **Status: Tahap 2 (UI dasar) — kode ditulis, menunggu verifikasi build dan uji di perangkat.**
 > Proyek ini sedang dibangun bertahap. Hanya fitur yang tercantum sebagai **Tersedia** di bawah
 > yang sudah ada; sisanya direncanakan dan tidak boleh dianggap berfungsi.
 
@@ -25,16 +25,17 @@ Pendekatan build bersifat **hibrid**: lokal melalui Termux dan cloud melalui Git
 | Struktur proyek modular, navigasi, tema gelap/terang | Tersedia (belum terverifikasi di perangkat) | 1 |
 | Logging ke file, penyamaran rahasia, laporan crash | Tersedia (belum terverifikasi di perangkat) | 1 |
 | CI GitHub Actions (unit test + APK debug) | Tersedia (belum dijalankan) | 1 |
-| Splash, Dashboard, UI lengkap | Belum | 2 |
-| Project Manager dan File Explorer | Belum | 3 |
-| Code Editor | Belum | 4 |
+| Splash, Dashboard, navigasi, tampilan Project Manager | Tersedia (belum terverifikasi di perangkat) | 2 |
+| Editor awal (buffer sementara, nomor baris, posisi kursor) | Tersedia (belum terverifikasi di perangkat) | 2 |
+| Membuat/membuka proyek, File Explorer, simpan file | Belum | 3 |
+| Code Editor lengkap (highlighting, undo, multi-tab) | Belum | 4 |
 | Terminal dan integrasi Termux | Belum | 5 |
 | Build Gradle (debug/release/AAB) | Belum | 6 |
 | APK Manager | Belum | 7 |
 | Signing, GitHub, Cloud Build | Belum | 8–10 |
 | Error Analyzer, Preview, Settings lengkap | Belum | 11–13 |
 
-Detail lengkap: [`docs/ROADMAP.md`](docs/ROADMAP.md) dan [`docs/CHECKLIST.md`](docs/CHECKLIST.md).
+Detail lengkap: [`docs/ROADMAP.md`](docs/ROADMAP.md), [`docs/CHECKLIST.md`](docs/CHECKLIST.md), laporan tahap: [`docs/TAHAP-1.md`](docs/TAHAP-1.md), [`docs/TAHAP-2.md`](docs/TAHAP-2.md).
 
 ## Screenshots
 
@@ -82,8 +83,8 @@ app/            Presentation: Compose UI, navigasi, DI
 domain/         Model, kontrak repository, use case (Kotlin murni)
 data/           Implementasi repository
 core/common     Logging, dispatcher, crash reporter
-core/project    (direncanakan, Tahap 3)
-core/editor     (direncanakan, Tahap 4)
+core/project    (repository sementara; penyimpanan nyata Tahap 3)
+core/editor     (metrik teks editor awal; fitur penuh Tahap 4)
 core/terminal   (direncanakan, Tahap 5)
 core/builder    (direncanakan, Tahap 6)
 core/git        (direncanakan, Tahap 9)
@@ -99,7 +100,8 @@ Keystore dan rahasia **tidak** disimpan di repository; signing release lewat Git
 
 - Tahap 1 belum diverifikasi di perangkat; lihat [`docs/TAHAP-1.md`](docs/TAHAP-1.md).
 - Gradle Wrapper dibuat oleh `scripts/setup-wrapper.sh` (atau otomatis oleh CI), belum ikut di repository.
-- Layar selain Beranda dan Pengaturan masih berupa penanda "belum tersedia".
+- Belum ada penyimpanan proyek/file: daftar proyek selalu kosong dan isi Editor awal hilang saat aplikasi ditutup.
+- Layar Build, GitHub, dan Terminal masih berupa penanda "belum tersedia".
 - Build lokal di HP bergantung pada Termux, JDK, dan SDK yang kompatibel; belum diuji.
 
 ## Roadmap

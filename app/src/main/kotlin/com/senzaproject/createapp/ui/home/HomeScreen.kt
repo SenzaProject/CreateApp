@@ -1,6 +1,7 @@
 package com.senzaproject.createapp.ui.home
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -9,63 +10,132 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.Code
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.senzaproject.createapp.R
-import com.senzaproject.createapp.domain.diagnostics.AppDiagnostics
-import com.senzaproject.createapp.domain.module.ModuleInfo
+import com.senzaproject.createapp.domain.project.Project
+import com.senzaproject.createapp.ui.components.ActionTileData
+import com.senzaproject.createapp.ui.components.ActionTileGrid
 import com.senzaproject.createapp.ui.components.AppTopBar
-import com.senzaproject.createapp.ui.components.KeyValueRow
-import com.senzaproject.createapp.ui.components.ModuleStatusChip
-import com.senzaproject.createapp.ui.components.SectionCard
+import com.senzaproject.createapp.ui.components.ContentContainer
+import com.senzaproject.createapp.ui.components.EmptyState
+import com.senzaproject.createapp.ui.components.ProjectListItem
 import com.senzaproject.createapp.ui.theme.CodeTextStyle
+
+/** Aksi navigasi dari Dashboard; diisi oleh NavHost agar layar tidak mengenal rute. */
+class HomeNavigation(
+    val onProjects: () -> Unit,
+    val onEditor: () -> Unit,
+    val onBuild: () -> Unit,
+    val onTerminal: () -> Unit,
+    val onGitHub: () -> Unit,
+)
+
+private val TileBlue = Color(0xFF2563EB)
+private val TileGreen = Color(0xFF16A34A)
+private val TilePurple = Color(0xFF7C3AED)
+private val TileOrange = Color(0xFFEA580C)
+private val TileTeal = Color(0xFF0891B2)
+private val TileSlate = Color(0xFF475569)
 
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel,
-    onOpenEditor: () -> Unit,
-    onOpenTerminal: () -> Unit,
+    navigation: HomeNavigation,
     modifier: Modifier = Modifier,
 ) {
-    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val recentProjects by viewModel.recentProjects.collectAsStateWithLifecycle()
+    val lastCrash by viewModel.lastCrash.collectAsStateWithLifecycle()
+
+    val terminalIcon: ImageVector = ImageVector.vectorResource(R.drawable.ic_terminal)
+    // Subjudul tile jujur: fitur yang belum ada menampilkan tahap jadwalnya, bukan janji palsu.
+    val tiles = listOf(
+        ActionTileData(
+            icon = Icons.Filled.Add,
+            title = stringResource(R.string.tile_new_project),
+            subtitle = stringResource(R.string.tile_stage, 3),
+            color = TileBlue,
+            onClick = navigation.onProjects,
+        ),
+        ActionTileData(
+            icon = Icons.Filled.FolderOpen,
+            title = stringResource(R.string.tile_open_project),
+            subtitle = stringResource(R.string.tile_stage, 3),
+            color = TileGreen,
+            onClick = navigation.onProjects,
+        ),
+        ActionTileData(
+            icon = Icons.Filled.Code,
+            title = stringResource(R.string.tile_editor),
+            subtitle = stringResource(R.string.tile_editor_basic),
+            color = TileTeal,
+            onClick = navigation.onEditor,
+        ),
+        ActionTileData(
+            icon = Icons.Filled.Build,
+            title = stringResource(R.string.tile_build_apk),
+            subtitle = stringResource(R.string.tile_stage, 6),
+            color = TilePurple,
+            onClick = navigation.onBuild,
+        ),
+        ActionTileData(
+            icon = terminalIcon,
+            title = stringResource(R.string.tile_terminal),
+            subtitle = stringResource(R.string.tile_stage, 5),
+            color = TileOrange,
+            onClick = navigation.onTerminal,
+        ),
+        ActionTileData(
+            icon = Icons.Filled.Cloud,
+            title = stringResource(R.string.tile_github),
+            subtitle = stringResource(R.string.tile_stage, 9),
+            color = TileSlate,
+            onClick = navigation.onGitHub,
+        ),
+    )
 
     Column(modifier = modifier.fillMaxSize()) {
         AppTopBar(title = stringResource(R.string.app_name))
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            WelcomeCard()
-            ShortcutsCard(onOpenEditor = onOpenEditor, onOpenTerminal = onOpenTerminal)
-
-            if (state.isLoading && state.diagnostics == null) {
-                LoadingCard()
-            }
-            if (state.hasError) {
-                ErrorCard(onRetry = viewModel::refresh)
-            }
-            state.diagnostics?.let { diagnostics ->
-                AppInfoCard(diagnostics)
-                ModulesCard(diagnostics.modules)
-            }
-            state.lastCrash?.let { crash ->
-                CrashCard(report = crash, onClear = viewModel::clearCrashReport)
+        ContentContainer {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                WelcomeCard()
+                ActionTileGrid(tiles = tiles)
+                RecentProjectsSection(
+                    projects = recentProjects,
+                    onSeeAll = navigation.onProjects,
+                )
+                lastCrash?.let { crash ->
+                    CrashCard(report = crash, onClear = viewModel::clearCrashReport)
+                }
             }
         }
     }
@@ -97,91 +167,43 @@ private fun WelcomeCard() {
 }
 
 @Composable
-private fun ShortcutsCard(
-    onOpenEditor: () -> Unit,
-    onOpenTerminal: () -> Unit,
+private fun RecentProjectsSection(
+    projects: List<Project>?,
+    onSeeAll: () -> Unit,
 ) {
-    SectionCard(title = stringResource(R.string.home_shortcuts_title)) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            OutlinedButton(onClick = onOpenEditor, modifier = Modifier.weight(1f)) {
-                Text(stringResource(R.string.home_open_editor))
-            }
-            OutlinedButton(onClick = onOpenTerminal, modifier = Modifier.weight(1f)) {
-                Text(stringResource(R.string.home_open_terminal))
+            Text(
+                text = stringResource(R.string.home_recent_title),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.weight(1f),
+            )
+            TextButton(onClick = onSeeAll) {
+                Text(text = stringResource(R.string.home_see_all))
             }
         }
-    }
-}
-
-@Composable
-private fun LoadingCard() {
-    SectionCard(title = stringResource(R.string.home_loading)) {
-        CircularProgressIndicator()
-    }
-}
-
-@Composable
-private fun ErrorCard(onRetry: () -> Unit) {
-    SectionCard(title = stringResource(R.string.home_error)) {
-        Button(onClick = onRetry) {
-            Text(stringResource(R.string.action_retry))
-        }
-    }
-}
-
-@Composable
-private fun AppInfoCard(diagnostics: AppDiagnostics) {
-    val app = diagnostics.app
-    val device = diagnostics.device
-    val buildType = stringResource(
-        if (app.isDebug) R.string.build_type_debug else R.string.build_type_release,
-    )
-    SectionCard(title = stringResource(R.string.home_foundation_title)) {
-        KeyValueRow(
-            label = stringResource(R.string.diag_version),
-            value = "${app.versionName} (${app.versionCode})",
-        )
-        KeyValueRow(label = stringResource(R.string.diag_package), value = app.packageName)
-        KeyValueRow(label = stringResource(R.string.diag_build_type), value = buildType)
-        KeyValueRow(
-            label = stringResource(R.string.diag_android),
-            value = stringResource(R.string.diag_android_value, device.androidRelease, device.sdkInt),
-        )
-        KeyValueRow(
-            label = stringResource(R.string.diag_device),
-            value = "${device.manufacturer} ${device.model}",
-        )
-        KeyValueRow(
-            label = stringResource(R.string.diag_abi),
-            value = device.supportedAbis.joinToString(),
-        )
-    }
-}
-
-@Composable
-private fun ModulesCard(modules: List<ModuleInfo>) {
-    SectionCard(title = stringResource(R.string.home_modules_title)) {
-        modules.forEach { module ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
+        when {
+            projects == null -> Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                contentAlignment = Alignment.Center,
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = module.name,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    Text(
-                        text = "${module.id} • ${stringResource(R.string.module_stage, module.plannedStage)}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                ModuleStatusChip(status = module.status)
+                CircularProgressIndicator()
+            }
+
+            projects.isEmpty() -> EmptyState(
+                icon = Icons.Filled.Folder,
+                title = stringResource(R.string.home_recent_empty_title),
+                description = stringResource(R.string.home_recent_empty_desc),
+            )
+
+            else -> projects.forEach { project ->
+                ProjectListItem(project = project)
             }
         }
     }
@@ -216,7 +238,7 @@ private fun CrashCard(report: String, onClear: () -> Unit) {
                 overflow = TextOverflow.Ellipsis,
             )
             Button(onClick = onClear) {
-                Text(stringResource(R.string.crash_clear))
+                Text(text = stringResource(R.string.crash_clear))
             }
         }
     }

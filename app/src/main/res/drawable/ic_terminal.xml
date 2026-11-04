@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ikon terminal: bingkai jendela + prompt ">" + garis bawah. Isi evenOdd membuat bagian dalam bingkai berlubang. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M4,4h16a2,2 0 0,1 2,2v12a2,2 0 0,1 -2,2H4a2,2 0 0,1 -2,-2V6a2,2 0 0,1 2,-2z M4,6v12h16V6H4z M6.3,8 L11.8,12 L6.3,16 L6.3,13.9 L9,12 L6.3,10.1 Z M12.6,14.2h5v1.6h-5z" />
+</vector>

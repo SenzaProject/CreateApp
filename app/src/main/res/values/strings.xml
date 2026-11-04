@@ -16,8 +16,6 @@
     <!-- Layar yang belum diimplementasikan -->
     <string name="placeholder_not_available">Fitur ini belum tersedia</string>
     <string name="placeholder_planned_stage">Dijadwalkan pada Tahap %1$d</string>
-    <string name="placeholder_projects_desc">Pembuatan, pembukaan, dan pengelolaan proyek Android beserta file explorer.</string>
-    <string name="placeholder_editor_desc">Editor kode dengan syntax highlighting, pencarian, undo/redo, dan multi-tab.</string>
     <string name="placeholder_build_desc">Build Gradle nyata (debug, release, AAB) dengan log, progres, dan pembatalan.</string>
     <string name="placeholder_terminal_desc">Terminal developer dan integrasi Termux melalui mekanisme resmi.</string>
     <string name="placeholder_github_desc">Autentikasi aman, clone, commit, push, pull, dan manajemen branch.</string>
@@ -25,12 +23,8 @@
     <!-- Beranda -->
     <string name="home_welcome_title">Selamat datang di Create App</string>
     <string name="home_welcome_subtitle">IDE Android dan APK Builder di perangkat Anda.</string>
-    <string name="home_shortcuts_title">Pintasan</string>
-    <string name="home_open_editor">Buka Editor</string>
-    <string name="home_open_terminal">Buka Terminal</string>
     <string name="home_foundation_title">Informasi aplikasi</string>
     <string name="home_modules_title">Status modul</string>
-    <string name="home_loading">Memuat informasi aplikasi…</string>
     <string name="home_error">Gagal memuat informasi aplikasi.</string>
 
     <!-- Diagnostik -->
@@ -61,4 +55,40 @@
     <string name="settings_version">Versi</string>
     <string name="settings_repository">Repositori</string>
     <string name="settings_more_soon">Pengaturan tema, bahasa, editor, build, dan penyimpanan dijadwalkan pada Tahap 13.</string>
+    <!-- Splash -->
+    <string name="splash_tagline">Build • Code • Innovate</string>
+    <string name="splash_loading">Memuat aplikasi…</string>
+
+    <!-- Dashboard -->
+    <string name="home_recent_title">Proyek Terbaru</string>
+    <string name="home_see_all">Lihat Semua</string>
+    <string name="home_recent_empty_title">Belum ada proyek</string>
+    <string name="home_recent_empty_desc">Pembuatan dan pembukaan proyek tersedia pada Tahap 3.</string>
+    <string name="tile_new_project">Proyek Baru</string>
+    <string name="tile_open_project">Buka Proyek</string>
+    <string name="tile_editor">Editor</string>
+    <string name="tile_build_apk">Build APK</string>
+    <string name="tile_terminal">Terminal</string>
+    <string name="tile_github">GitHub</string>
+    <string name="tile_stage">Tahap %1$d</string>
+    <string name="tile_editor_basic">Editor awal</string>
+
+    <!-- Project Manager -->
+    <string name="projects_search_hint">Cari proyek</string>
+    <string name="projects_search_clear">Hapus pencarian</string>
+    <string name="projects_filter_all">Semua</string>
+    <string name="projects_filter_recent">Terbaru</string>
+    <string name="projects_filter_favorites">Favorit</string>
+    <string name="projects_empty_title">Belum ada proyek</string>
+    <string name="projects_empty_desc">Pembuatan, pembukaan, dan pengelolaan proyek tersedia pada Tahap 3.</string>
+    <string name="projects_no_results">Tidak ada proyek yang cocok.</string>
+    <string name="project_favorite">Favorit</string>
+
+    <!-- Editor awal -->
+    <string name="editor_tab_scratch">Buffer sementara</string>
+    <string name="editor_notice">Editor awal: teks belum disimpan ke file. Penyimpanan file dijadwalkan Tahap 3, fitur editor lengkap Tahap 4.</string>
+    <string name="editor_hint">Ketik teks atau kode di sini…</string>
+    <string name="editor_status_position">Baris %1$d, Kolom %2$d</string>
+    <string name="editor_status_lines">%1$d baris</string>
+    <string name="editor_status_chars">%1$d karakter</string>
 </resources>

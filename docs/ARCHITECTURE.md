@@ -24,12 +24,20 @@ Aturan dependensi:
 3. `:app` adalah satu-satunya tempat modul dirakit (DI) dan satu-satunya yang memiliki UI.
 4. Antar modul `:core:*` tidak saling bergantung kecuali lewat kontrak di `:domain`.
 
-## Alur data (contoh: kartu informasi aplikasi di Beranda)
+## Alur data
 
-`HomeScreen` → `HomeViewModel` → `GetAppDiagnosticsUseCase` → `DiagnosticsRepository` (kontrak di `:domain`)
-→ `DiagnosticsRepositoryImpl` (di `:data`) → `AppResult<AppDiagnostics>` → `HomeUiState` (StateFlow).
+Contoh 1 — informasi aplikasi (Pengaturan):
+`SettingsScreen` → `SettingsViewModel` → `GetAppDiagnosticsUseCase` → `DiagnosticsRepository` (kontrak di `:domain`)
+→ `DiagnosticsRepositoryImpl` (di `:data`) → `AppResult<AppDiagnostics>` → `SettingsUiState` (StateFlow).
 
-Pola ini dipakai ulang untuk fitur berikutnya.
+Contoh 2 — daftar proyek (Dashboard dan Project Manager):
+`ProjectsScreen` / `HomeScreen` → `ProjectsViewModel` / `HomeViewModel` → `ObserveProjectsUseCase` → `ProjectRepository`
+(kontrak di `:domain`) → `EmptyProjectRepository` (sementara, `:core:project`) → `Flow<List<Project>>`.
+Penyaringan dan pengurutan memakai fungsi murni `filterProjects` di `:domain` (diuji unit test).
+Pada Tahap 3 hanya implementasi repository yang diganti; UI dan use case tidak berubah.
+
+State yang ditulis pengguna secara langsung (teks pencarian, isi editor) disimpan sebagai state Compose sinkron di
+ViewModel agar pengetikan tidak tertunda atau melompat.
 
 ## Error handling dan logging
 
@@ -51,7 +59,10 @@ Pola ini dipakai ulang untuk fitur berikutnya.
 | Bottom navigation: Beranda, Proyek, Build, GitHub, Pengaturan | Mengikuti desain UI awal. Editor dan Terminal dibuka sebagai layar sekunder. |
 | `material-icons-extended` | Ikon Folder/Code/Cloud; dikecilkan oleh R8 saat release diaktifkan (Tahap 8/14). |
 | minSdk 26 | Adaptive icon tanpa PNG lama; cukup luas untuk perangkat modern. |
-| Rute navigasi string | Menghindari plugin serialization pada Tahap 1. |
+| Rute navigasi string | Menghindari plugin serialization. |
+| `popUpTo(HOME)` untuk tab utama | Splash dihapus dari back stack, sehingga dasar back stack adalah Home. |
+| Buffer editor di ViewModel level Activity | Bertahan saat layar Editor ditutup lalu dibuka lagi; bukan penyimpanan permanen. |
+| `EmptyProjectRepository` | UI Tahap 2 tampil jujur tanpa data palsu; diganti penyimpanan nyata di Tahap 3. |
 | Tidak ada izin di manifest | Izin ditambahkan hanya saat fiturnya ada. |
 
 ## Versi toolchain
