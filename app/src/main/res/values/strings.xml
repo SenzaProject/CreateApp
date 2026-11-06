@@ -63,7 +63,7 @@
     <string name="home_recent_title">Proyek Terbaru</string>
     <string name="home_see_all">Lihat Semua</string>
     <string name="home_recent_empty_title">Belum ada proyek</string>
-    <string name="home_recent_empty_desc">Pembuatan dan pembukaan proyek tersedia pada Tahap 3.</string>
+    <string name="home_recent_empty_desc">Buat proyek baru atau buka folder proyek dari tab Proyek.</string>
     <string name="tile_new_project">Proyek Baru</string>
     <string name="tile_open_project">Buka Proyek</string>
     <string name="tile_editor">Editor</string>
@@ -80,15 +80,101 @@
     <string name="projects_filter_recent">Terbaru</string>
     <string name="projects_filter_favorites">Favorit</string>
     <string name="projects_empty_title">Belum ada proyek</string>
-    <string name="projects_empty_desc">Pembuatan, pembukaan, dan pengelolaan proyek tersedia pada Tahap 3.</string>
+    <string name="projects_empty_desc">Buat proyek baru atau buka folder proyek yang sudah ada.</string>
     <string name="projects_no_results">Tidak ada proyek yang cocok.</string>
     <string name="project_favorite">Favorit</string>
 
     <!-- Editor awal -->
     <string name="editor_tab_scratch">Buffer sementara</string>
-    <string name="editor_notice">Editor awal: teks belum disimpan ke file. Penyimpanan file dijadwalkan Tahap 3, fitur editor lengkap Tahap 4.</string>
+    <string name="editor_notice">Buffer sementara: teks tidak disimpan ke file. Buka file dari tab Proyek untuk mengedit dan menyimpannya.</string>
     <string name="editor_hint">Ketik teks atau kode di sini…</string>
     <string name="editor_status_position">Baris %1$d, Kolom %2$d</string>
     <string name="editor_status_lines">%1$d baris</string>
     <string name="editor_status_chars">%1$d karakter</string>
+
+    <!-- Aksi umum -->
+    <string name="action_cancel">Batal</string>
+    <string name="action_create">Buat</string>
+    <string name="action_rename">Ganti nama</string>
+    <string name="action_delete">Hapus</string>
+
+    <!-- Beranda: subjudul tile -->
+    <string name="tile_new_project_sub">Buat baru</string>
+    <string name="tile_open_project_sub">Impor folder</string>
+
+    <!-- Pesan kesalahan -->
+    <string name="error_permission">Izin ditolak. Pilih ulang folder atau beri izin akses yang diperlukan.</string>
+    <string name="error_storage">Gagal membaca atau menulis penyimpanan. Coba lagi.</string>
+    <string name="error_validation">Input tidak valid.</string>
+    <string name="error_unsupported">Fitur ini tidak didukung di perangkat Anda.</string>
+    <string name="error_unknown">Terjadi kesalahan yang tidak terduga.</string>
+    <string name="error_invalid_name">Nama tidak valid. Jangan kosong, jangan diawali atau diakhiri spasi, jangan diakhiri titik, dan hindari karakter / : * ? |</string>
+    <string name="error_reserved_name">Nama ini dicadangkan oleh sistem.</string>
+    <string name="error_invalid_package">Package tidak valid. Contoh: com.contoh.app (huruf kecil, minimal dua bagian dipisah titik).</string>
+    <string name="error_name_taken">Sudah ada proyek dengan nama ini.</string>
+    <string name="error_not_found">Tidak ditemukan. Mungkin sudah dihapus atau dipindahkan.</string>
+    <string name="error_already_exists">Sudah ada file atau folder dengan nama ini di lokasi ini.</string>
+    <string name="error_outside_project">Lokasi tidak diizinkan karena berada di luar folder proyek.</string>
+    <string name="error_too_large">Ukuran melebihi batas yang didukung (file teks maksimal 1 MB; impor maksimal 512 MB dan 20.000 file).</string>
+    <string name="error_not_text">File ini bukan teks UTF-8 sehingga tidak bisa dibuka di editor.</string>
+    <string name="error_low_storage">Ruang penyimpanan tidak cukup.</string>
+    <string name="error_invalid_source">Folder yang dipilih tidak valid atau tidak bisa diakses. Coba pilih subfolder.</string>
+
+    <!-- Project Manager: aksi dan dialog -->
+    <string name="project_action_new">Proyek baru</string>
+    <string name="project_action_open">Buka folder</string>
+    <string name="project_create_title">Proyek baru</string>
+    <string name="project_name_label">Nama proyek</string>
+    <string name="project_template_label">Template</string>
+    <string name="project_template_empty">Kosong (hanya README)</string>
+    <string name="project_template_android">Android Kotlin (kerangka Gradle)</string>
+    <string name="project_package_label">Package name</string>
+    <string name="project_package_hint">Contoh: com.contoh.app</string>
+    <string name="project_rename_title">Ganti nama proyek</string>
+    <string name="project_delete_title">Hapus proyek?</string>
+    <string name="project_delete_message">Proyek %1$s beserta seluruh file di dalamnya akan dihapus permanen dan tidak bisa dikembalikan.</string>
+    <string name="project_menu">Menu proyek</string>
+    <string name="project_favorite_action">Tandai favorit</string>
+    <string name="project_unfavorite">Hapus dari favorit</string>
+    <string name="project_export">Ekspor ke folder</string>
+    <string name="project_msg_created">Proyek %1$s dibuat.</string>
+    <string name="project_msg_renamed">Nama proyek diganti menjadi %1$s.</string>
+    <string name="project_msg_deleted">Proyek %1$s dihapus.</string>
+    <string name="project_msg_imported">Proyek %1$s diimpor.</string>
+    <string name="project_msg_exported">Ekspor selesai: %1$d file disalin.</string>
+
+    <!-- File Explorer -->
+    <string name="explorer_refresh">Muat ulang</string>
+    <string name="explorer_new_file">File baru</string>
+    <string name="explorer_new_folder">Folder baru</string>
+    <string name="explorer_new_file_title">File baru</string>
+    <string name="explorer_new_folder_title">Folder baru</string>
+    <string name="explorer_name_label">Nama</string>
+    <string name="explorer_rename_title">Ganti nama</string>
+    <string name="explorer_delete_file_title">Hapus file?</string>
+    <string name="explorer_delete_folder_title">Hapus folder?</string>
+    <string name="explorer_delete_file_message">%1$s akan dihapus permanen dan tidak bisa dikembalikan.</string>
+    <string name="explorer_delete_folder_message">Folder %1$s beserta seluruh isinya akan dihapus permanen dan tidak bisa dikembalikan.</string>
+    <string name="explorer_empty_title">Folder kosong</string>
+    <string name="explorer_empty_desc">Buat file atau folder baru dengan tombol di atas.</string>
+    <string name="explorer_item_menu">Menu item</string>
+    <string name="explorer_file_type_label">Jenis file</string>
+    <string name="file_type_kotlin">Kotlin (.kt)</string>
+    <string name="file_type_xml">XML (.xml)</string>
+    <string name="file_type_json">JSON (.json)</string>
+    <string name="file_type_gradle">Gradle (.gradle.kts)</string>
+    <string name="file_type_other">Lainnya</string>
+    <string name="explorer_msg_created">%1$s dibuat.</string>
+    <string name="explorer_msg_renamed">Diganti nama menjadi %1$s.</string>
+    <string name="explorer_msg_deleted">%1$s dihapus.</string>
+
+    <!-- Editor: file proyek -->
+    <string name="editor_notice_file">Mengedit %1$s. Simpan dengan tombol Simpan; simpan otomatis dijadwalkan Tahap 4.</string>
+    <string name="editor_action_save">Simpan</string>
+    <string name="editor_action_discard">Buang</string>
+    <string name="editor_unsaved_title">Simpan perubahan?</string>
+    <string name="editor_unsaved_message">%1$s memiliki perubahan yang belum disimpan.</string>
+    <string name="editor_msg_saved">Tersimpan.</string>
+    <string name="editor_msg_save_failed">Gagal menyimpan: %1$s</string>
+    <string name="editor_msg_load_failed">Gagal membuka file: %1$s</string>
 </resources>

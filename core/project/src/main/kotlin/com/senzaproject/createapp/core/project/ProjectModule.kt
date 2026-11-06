@@ -4,14 +4,14 @@ import com.senzaproject.createapp.domain.module.ModuleInfo
 import com.senzaproject.createapp.domain.module.ModuleStatus
 
 /**
- * Kerangka modul Project. BELUM ada fitur yang diimplementasikan di sini:
- * modul ini baru dihubungkan ke proyek pada Tahap 1 dan diisi pada Tahap 3.
+ * Modul Project (Tahap 3): penyimpanan proyek berbasis folder, operasi file, serta impor/ekspor SAF.
+ * Statusnya IN_PROGRESS sampai kriteria Tahap 3 terbukti di perangkat (lihat docs/TAHAP-3.md).
  */
 object ProjectModule {
     val info = ModuleInfo(
         id = ":core:project",
         name = "Project",
         plannedStage = 3,
-        status = ModuleStatus.PLANNED,
+        status = ModuleStatus.IN_PROGRESS,
     )
 }

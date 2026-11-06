@@ -1,5 +1,6 @@
 package com.senzaproject.createapp.ui.editor
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -27,11 +28,22 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Save
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -48,12 +60,14 @@ import com.senzaproject.createapp.R
 import com.senzaproject.createapp.core.editor.CursorPosition
 import com.senzaproject.createapp.core.editor.cursorPositionOf
 import com.senzaproject.createapp.core.editor.lineCountOf
+import com.senzaproject.createapp.ui.common.messageRes
 import com.senzaproject.createapp.ui.components.AppTopBar
 import com.senzaproject.createapp.ui.theme.CodeTextStyle
 
 /**
- * Editor awal (Tahap 2): satu buffer teks sementara dengan nomor baris, scroll dua arah, dan
- * status posisi kursor. Belum ada penyimpanan file, syntax highlighting, undo/redo, atau multi-tab.
+ * Editor. Mode buffer sementara (dari Beranda) tidak menyimpan ke file; mode file (dari File
+ * Explorer) memuat file proyek, menandai perubahan yang belum disimpan, dan menyimpannya lewat
+ * tombol Simpan. Belum ada penyimpanan otomatis, syntax highlighting, undo/redo, atau multi-tab (Tahap 4).
  */
 @Composable
 fun EditorScreen(
@@ -65,6 +79,10 @@ fun EditorScreen(
     val text = value.text
     val position = remember(text, value.selection.start) { cursorPositionOf(text, value.selection.start) }
     val lineCount = remember(text) { lineCountOf(text) }
+    val file = viewModel.openFile
+    val isDirty = viewModel.isDirty
+    val isLoading = viewModel.isLoading
+    val isSaving = viewModel.isSaving
 
     val scheme = MaterialTheme.colorScheme
     val editorStyle = CodeTextStyle.copy(
@@ -75,78 +93,184 @@ fun EditorScreen(
     val focusRequester = remember { FocusRequester() }
     val interactionSource = remember { MutableInteractionSource() }
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .windowInsetsPadding(WindowInsets.navigationBars.union(WindowInsets.ime)),
-    ) {
-        AppTopBar(title = stringResource(R.string.title_editor), onBack = onBack)
-        NoticeBar(text = stringResource(R.string.editor_notice))
-        TabStrip(title = stringResource(R.string.editor_tab_scratch))
+    var showDiscardDialog by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
 
-        BoxWithConstraints(
+    val message = viewModel.message
+    val messageText = message?.let { editorMessageText(it) }
+    LaunchedEffect(message) {
+        if (message != null && messageText != null) {
+            snackbarHostState.showSnackbar(messageText)
+            viewModel.consumeMessage()
+        }
+    }
+
+    // Keluar dari layar menutup file (buffer sementara kembali). Perubahan yang belum disimpan
+    // harus dikonfirmasi lebih dulu agar kode tidak hilang tanpa sengaja.
+    fun leave() {
+        viewModel.closeFile()
+        onBack()
+    }
+
+    fun requestBack() {
+        if (viewModel.isDirty) {
+            showDiscardDialog = true
+        } else {
+            leave()
+        }
+    }
+
+    BackHandler(enabled = true) { requestBack() }
+
+    Box(modifier = modifier.fillMaxSize()) {
+        Column(
             modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .background(scheme.surface),
+                .fillMaxSize()
+                .windowInsetsPadding(WindowInsets.navigationBars.union(WindowInsets.ime)),
         ) {
-            val viewportHeight = maxHeight
-            Row(
+            AppTopBar(
+                title = file?.name ?: stringResource(R.string.title_editor),
+                onBack = { requestBack() },
+                actions = {
+                    if (file != null) {
+                        IconButton(
+                            onClick = { viewModel.save() },
+                            enabled = isDirty && !isSaving && !isLoading,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Save,
+                                contentDescription = stringResource(R.string.editor_action_save),
+                            )
+                        }
+                    }
+                },
+            )
+            NoticeBar(
+                text = if (file != null) {
+                    stringResource(R.string.editor_notice_file, file.path)
+                } else {
+                    stringResource(R.string.editor_notice)
+                },
+            )
+            TabStrip(
+                title = if (file != null) {
+                    if (isDirty) file.name + " \u2022" else file.name
+                } else {
+                    stringResource(R.string.editor_tab_scratch)
+                },
+            )
+            if (isLoading || isSaving) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+
+            BoxWithConstraints(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState()),
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .background(scheme.surface),
             ) {
-                LineNumbers(
-                    lineCount = lineCount,
-                    style = editorStyle,
-                    modifier = Modifier.heightIn(min = viewportHeight),
-                )
-                // Area ini bisa diketuk di mana saja untuk memfokuskan kolom teks.
-                Box(
+                val viewportHeight = maxHeight
+                Row(
                     modifier = Modifier
-                        .weight(1f)
-                        .heightIn(min = viewportHeight)
-                        .clickable(
-                            interactionSource = interactionSource,
-                            indication = null,
-                            onClick = { focusRequester.requestFocus() },
-                        ),
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState()),
                 ) {
-                    // horizontalScroll memberi lebar tak terbatas sehingga baris tidak dibungkus
-                    // dan nomor baris tetap sejajar dengan baris teks.
-                    BasicTextField(
-                        value = value,
-                        onValueChange = viewModel::onValueChange,
-                        modifier = Modifier
-                            .focusRequester(focusRequester)
-                            .horizontalScroll(rememberScrollState())
-                            .padding(horizontal = 8.dp, vertical = 8.dp),
-                        textStyle = editorStyle,
-                        cursorBrush = SolidColor(scheme.primary),
-                        keyboardOptions = KeyboardOptions(
-                            capitalization = KeyboardCapitalization.None,
-                            autoCorrectEnabled = false,
-                            keyboardType = KeyboardType.Text,
-                        ),
-                        decorationBox = { innerTextField ->
-                            Box {
-                                if (text.isEmpty()) {
-                                    Text(
-                                        text = stringResource(R.string.editor_hint),
-                                        style = editorStyle,
-                                        color = scheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                    )
-                                }
-                                innerTextField()
-                            }
-                        },
+                    LineNumbers(
+                        lineCount = lineCount,
+                        style = editorStyle,
+                        modifier = Modifier.heightIn(min = viewportHeight),
                     )
+                    // Area ini bisa diketuk di mana saja untuk memfokuskan kolom teks.
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .heightIn(min = viewportHeight)
+                            .clickable(
+                                interactionSource = interactionSource,
+                                indication = null,
+                                onClick = { focusRequester.requestFocus() },
+                            ),
+                    ) {
+                        // horizontalScroll memberi lebar tak terbatas sehingga baris tidak dibungkus
+                        // dan nomor baris tetap sejajar dengan baris teks.
+                        BasicTextField(
+                            value = value,
+                            onValueChange = viewModel::onValueChange,
+                            modifier = Modifier
+                                .focusRequester(focusRequester)
+                                .horizontalScroll(rememberScrollState())
+                                .padding(horizontal = 8.dp, vertical = 8.dp),
+                            enabled = !isLoading,
+                            textStyle = editorStyle,
+                            cursorBrush = SolidColor(scheme.primary),
+                            keyboardOptions = KeyboardOptions(
+                                capitalization = KeyboardCapitalization.None,
+                                autoCorrectEnabled = false,
+                                keyboardType = KeyboardType.Text,
+                            ),
+                            decorationBox = { innerTextField ->
+                                Box {
+                                    if (text.isEmpty() && !isLoading) {
+                                        Text(
+                                            text = stringResource(R.string.editor_hint),
+                                            style = editorStyle,
+                                            color = scheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                        )
+                                    }
+                                    innerTextField()
+                                }
+                            },
+                        )
+                    }
                 }
             }
-        }
 
-        StatusBar(position = position, lineCount = lineCount, charCount = text.length)
+            StatusBar(position = position, lineCount = lineCount, charCount = text.length)
+        }
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 48.dp, start = 16.dp, end = 16.dp),
+        )
     }
+
+    if (showDiscardDialog) {
+        AlertDialog(
+            onDismissRequest = { showDiscardDialog = false },
+            title = { Text(stringResource(R.string.editor_unsaved_title)) },
+            text = { Text(stringResource(R.string.editor_unsaved_message, file?.name.orEmpty())) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDiscardDialog = false
+                        viewModel.save { leave() }
+                    },
+                    enabled = !isSaving,
+                ) { Text(stringResource(R.string.editor_action_save)) }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(onClick = { showDiscardDialog = false }) {
+                        Text(stringResource(R.string.action_cancel))
+                    }
+                    TextButton(
+                        onClick = {
+                            showDiscardDialog = false
+                            leave()
+                        },
+                    ) { Text(stringResource(R.string.editor_action_discard)) }
+                }
+            },
+        )
+    }
+}
+
+@Composable
+private fun editorMessageText(message: EditorMessage): String = when (message) {
+    EditorMessage.Saved -> stringResource(R.string.editor_msg_saved)
+    is EditorMessage.SaveFailed ->
+        stringResource(R.string.editor_msg_save_failed, stringResource(message.error.messageRes()))
+    is EditorMessage.LoadFailed ->
+        stringResource(R.string.editor_msg_load_failed, stringResource(message.error.messageRes()))
 }
 
 @Composable

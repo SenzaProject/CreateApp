@@ -12,8 +12,11 @@ import com.senzaproject.createapp.core.common.DefaultAppDispatchers
 import com.senzaproject.createapp.core.common.LogFileSink
 import com.senzaproject.createapp.core.editor.EditorModule
 import com.senzaproject.createapp.core.git.GitModule
-import com.senzaproject.createapp.core.project.EmptyProjectRepository
+import com.senzaproject.createapp.core.project.FileProjectFilesRepository
+import com.senzaproject.createapp.core.project.FileProjectRepository
 import com.senzaproject.createapp.core.project.ProjectModule
+import com.senzaproject.createapp.core.project.ProjectStorage
+import com.senzaproject.createapp.core.project.SafProjectTransfer
 import com.senzaproject.createapp.core.terminal.TerminalModule
 import com.senzaproject.createapp.data.DataModule
 import com.senzaproject.createapp.data.diagnostics.AndroidDeviceInfoSource
@@ -26,7 +29,9 @@ import com.senzaproject.createapp.domain.module.DomainModule
 import com.senzaproject.createapp.domain.module.ModuleInfo
 import com.senzaproject.createapp.domain.module.ModuleStatus
 import com.senzaproject.createapp.domain.project.ObserveProjectsUseCase
+import com.senzaproject.createapp.domain.project.ProjectFilesRepository
 import com.senzaproject.createapp.domain.project.ProjectRepository
+import com.senzaproject.createapp.domain.project.ProjectTransferRepository
 import java.io.File
 
 /**
@@ -78,8 +83,26 @@ class AppContainer(application: Application) {
 
     val getAppDiagnostics = GetAppDiagnosticsUseCase(diagnosticsRepository)
 
-    /** Sementara kosong sampai penyimpanan proyek nyata dibuat pada Tahap 3. */
-    private val projectRepository: ProjectRepository = EmptyProjectRepository()
+    /** Proyek disimpan di penyimpanan privat aplikasi (`filesDir/projects`): tanpa izin penyimpanan luas. */
+    private val projectStorage = ProjectStorage(root = File(application.filesDir, "projects"))
+
+    val projectRepository: ProjectRepository = FileProjectRepository(
+        storage = projectStorage,
+        ioDispatcher = dispatchers.io,
+        logger = logger,
+    )
+
+    val projectFiles: ProjectFilesRepository = FileProjectFilesRepository(
+        storage = projectStorage,
+        ioDispatcher = dispatchers.io,
+    )
+
+    /** Impor/ekspor folder lewat Storage Access Framework. */
+    val projectTransfer: ProjectTransferRepository = SafProjectTransfer(
+        context = application,
+        storage = projectStorage,
+        ioDispatcher = dispatchers.io,
+    )
 
     val observeProjects = ObserveProjectsUseCase(projectRepository)
 }

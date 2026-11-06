@@ -11,12 +11,16 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.navArgument
 import com.senzaproject.createapp.R
 import com.senzaproject.createapp.ui.components.PlaceholderScreen
 import com.senzaproject.createapp.ui.editor.EditorScreen
 import com.senzaproject.createapp.ui.editor.EditorViewModel
+import com.senzaproject.createapp.ui.explorer.ExplorerScreen
+import com.senzaproject.createapp.ui.explorer.ExplorerViewModel
 import com.senzaproject.createapp.ui.home.HomeNavigation
 import com.senzaproject.createapp.ui.home.HomeScreen
 import com.senzaproject.createapp.ui.home.HomeViewModel
@@ -62,13 +66,39 @@ fun CreateAppNavHost(
                     onBuild = { navController.navigateTopLevel(Routes.BUILD) },
                     onTerminal = { navController.navigateSecondary(Routes.TERMINAL) },
                     onGitHub = { navController.navigateTopLevel(Routes.GITHUB) },
+                    onOpenProject = { id -> navController.navigateSecondary(Routes.explorer(id)) },
                 ),
             )
         }
 
         composable(Routes.PROJECTS) {
             val viewModel: ProjectsViewModel = viewModel(factory = viewModelFactory)
-            ProjectsScreen(viewModel = viewModel)
+            ProjectsScreen(
+                viewModel = viewModel,
+                onOpenProject = { id -> navController.navigateSecondary(Routes.explorer(id)) },
+            )
+        }
+
+        composable(
+            route = Routes.EXPLORER,
+            arguments = listOf(navArgument(Routes.ARG_PROJECT_ID) { type = NavType.StringType }),
+        ) { entry ->
+            val projectId = entry.arguments?.getString(Routes.ARG_PROJECT_ID).orEmpty()
+            val explorerViewModel: ExplorerViewModel = viewModel(factory = viewModelFactory)
+            // ViewModel Editor berskala Activity: file dibuka lewat ViewModel ini lalu layar Editor ditampilkan.
+            val editorViewModel: EditorViewModel = viewModel(
+                viewModelStoreOwner = activityViewModelStoreOwner,
+                factory = viewModelFactory,
+            )
+            ExplorerScreen(
+                projectId = projectId,
+                viewModel = explorerViewModel,
+                onBack = { navController.popBackStack() },
+                onOpenFile = { path ->
+                    editorViewModel.openProjectFile(projectId, path)
+                    navController.navigateSecondary(Routes.EDITOR)
+                },
+            )
         }
 
         composable(Routes.BUILD) {

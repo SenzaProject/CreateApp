@@ -3,6 +3,7 @@ package com.senzaproject.createapp.di
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.senzaproject.createapp.ui.editor.EditorViewModel
+import com.senzaproject.createapp.ui.explorer.ExplorerViewModel
 import com.senzaproject.createapp.ui.home.HomeViewModel
 import com.senzaproject.createapp.ui.projects.ProjectsViewModel
 import com.senzaproject.createapp.ui.settings.SettingsViewModel
@@ -22,6 +23,13 @@ class AppViewModelFactory(
 
         modelClass.isAssignableFrom(ProjectsViewModel::class.java) -> ProjectsViewModel(
             observeProjects = container.observeProjects,
+            repository = container.projectRepository,
+            transfer = container.projectTransfer,
+        ) as T
+
+        modelClass.isAssignableFrom(ExplorerViewModel::class.java) -> ExplorerViewModel(
+            projects = container.projectRepository,
+            files = container.projectFiles,
         ) as T
 
         modelClass.isAssignableFrom(SettingsViewModel::class.java) -> SettingsViewModel(
@@ -29,7 +37,9 @@ class AppViewModelFactory(
             logger = container.logger,
         ) as T
 
-        modelClass.isAssignableFrom(EditorViewModel::class.java) -> EditorViewModel() as T
+        modelClass.isAssignableFrom(EditorViewModel::class.java) -> EditorViewModel(
+            files = container.projectFiles,
+        ) as T
 
         else -> throw IllegalArgumentException("ViewModel tidak dikenal: ${modelClass.name}")
     }

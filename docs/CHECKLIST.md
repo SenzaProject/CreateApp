@@ -17,6 +17,8 @@ Gunakan checklist ini untuk melacak progres. Tandai hanya setelah bukti implemen
 - [ ] Navigasi dan tema
 
 ## Tahap 3 — Project/File Explorer
+> Kode dan unit test ditulis (lihat `docs/TAHAP-3.md`), tetapi **belum dikompilasi dan belum dijalankan**. Jangan dicentang
+> sebelum ada bukti: CI hijau (`./gradlew test`, `:app:assembleDebug`) dan uji manual di perangkat.
 - [ ] Buat/buka proyek
 - [ ] Operasi file/folder
 - [ ] Persistensi

@@ -14,4 +14,10 @@ object Routes {
     // Layar sekunder (dibuka dari layar lain, layar penuh tanpa bottom navigation)
     const val EDITOR = "editor"
     const val TERMINAL = "terminal"
+
+    /** File Explorer satu proyek. Id proyek hanya berisi huruf, angka, `_`, dan `-` sehingga aman di rute. */
+    const val EXPLORER = "explorer/{projectId}"
+    const val ARG_PROJECT_ID = "projectId"
+
+    fun explorer(projectId: String): String = "explorer/$projectId"
 }

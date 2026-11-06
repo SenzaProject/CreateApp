@@ -52,6 +52,7 @@ class HomeNavigation(
     val onBuild: () -> Unit,
     val onTerminal: () -> Unit,
     val onGitHub: () -> Unit,
+    val onOpenProject: (projectId: String) -> Unit = {},
 )
 
 private val TileBlue = Color(0xFF2563EB)
@@ -76,14 +77,14 @@ fun HomeScreen(
         ActionTileData(
             icon = Icons.Filled.Add,
             title = stringResource(R.string.tile_new_project),
-            subtitle = stringResource(R.string.tile_stage, 3),
+            subtitle = stringResource(R.string.tile_new_project_sub),
             color = TileBlue,
             onClick = navigation.onProjects,
         ),
         ActionTileData(
             icon = Icons.Filled.FolderOpen,
             title = stringResource(R.string.tile_open_project),
-            subtitle = stringResource(R.string.tile_stage, 3),
+            subtitle = stringResource(R.string.tile_open_project_sub),
             color = TileGreen,
             onClick = navigation.onProjects,
         ),
@@ -132,6 +133,7 @@ fun HomeScreen(
                 RecentProjectsSection(
                     projects = recentProjects,
                     onSeeAll = navigation.onProjects,
+                    onOpenProject = navigation.onOpenProject,
                 )
                 lastCrash?.let { crash ->
                     CrashCard(report = crash, onClear = viewModel::clearCrashReport)
@@ -170,6 +172,7 @@ private fun WelcomeCard() {
 private fun RecentProjectsSection(
     projects: List<Project>?,
     onSeeAll: () -> Unit,
+    onOpenProject: (String) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(
@@ -203,7 +206,7 @@ private fun RecentProjectsSection(
             )
 
             else -> projects.forEach { project ->
-                ProjectListItem(project = project)
+                ProjectListItem(project = project, onClick = { onOpenProject(project.id) })
             }
         }
     }

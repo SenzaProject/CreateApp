@@ -4,6 +4,7 @@ import android.text.format.DateUtils
 import android.text.format.Formatter
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -31,11 +32,16 @@ import com.senzaproject.createapp.R
 import com.senzaproject.createapp.domain.project.Project
 import com.senzaproject.createapp.ui.theme.CreateAppTheme
 
-/** Baris proyek: nama, package, waktu ubah terakhir, ukuran, dan penanda favorit. */
+/**
+ * Baris proyek: nama, package (bila ada), waktu ubah terakhir, ukuran, dan penanda favorit.
+ * [onClick] membuat seluruh kartu dapat diketuk; [trailing] adalah slot di ujung kanan (mis. menu).
+ */
 @Composable
 fun ProjectListItem(
     project: Project,
     modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
+    trailing: (@Composable () -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val meta = remember(project.lastModifiedMillis, project.sizeBytes) {
@@ -47,11 +53,9 @@ fun ProjectListItem(
         "$relativeTime • ${Formatter.formatShortFileSize(context, project.sizeBytes)}"
     }
 
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-    ) {
+    val shape = RoundedCornerShape(12.dp)
+    val colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    val content: @Composable ColumnScope.() -> Unit = {
         Row(
             modifier = Modifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -71,13 +75,15 @@ fun ProjectListItem(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                Text(
-                    text = project.packageName,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                if (project.packageName.isNotBlank()) {
+                    Text(
+                        text = project.packageName,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
                 Text(
                     text = meta,
                     style = MaterialTheme.typography.bodySmall,
@@ -91,7 +97,25 @@ fun ProjectListItem(
                     tint = Color(0xFFFACC15),
                 )
             }
+            if (trailing != null) trailing()
         }
+    }
+
+    if (onClick != null) {
+        Card(
+            onClick = onClick,
+            modifier = modifier.fillMaxWidth(),
+            shape = shape,
+            colors = colors,
+            content = content,
+        )
+    } else {
+        Card(
+            modifier = modifier.fillMaxWidth(),
+            shape = shape,
+            colors = colors,
+            content = content,
+        )
     }
 }
 

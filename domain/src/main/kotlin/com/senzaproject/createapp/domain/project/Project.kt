@@ -1,6 +1,11 @@
 package com.senzaproject.createapp.domain.project
 
-/** Proyek Android yang dikelola Create App. Penyimpanan nyata dikerjakan pada Tahap 3. */
+/**
+ * Proyek yang dikelola Create App.
+ *
+ * [id] adalah nama folder proyek (huruf, angka, `_`, `-`) dan tidak berubah saat proyek diganti nama.
+ * [packageName] boleh kosong untuk proyek non-Android atau hasil impor tanpa package yang terdeteksi.
+ */
 data class Project(
     val id: String,
     val name: String,

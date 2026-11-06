@@ -8,7 +8,7 @@
   Android IDE &amp; APK Builder — dikembangkan oleh <b>SenzaProject</b>
 </p>
 
-> **Status: Tahap 2 (UI dasar) — kode ditulis, menunggu verifikasi build dan uji di perangkat.**
+> **Status: Tahap 3 (Project Manager dan File Explorer) — kode dan unit test ditulis, menunggu CI dan uji di perangkat.**
 > Proyek ini sedang dibangun bertahap. Hanya fitur yang tercantum sebagai **Tersedia** di bawah
 > yang sudah ada; sisanya direncanakan dan tidak boleh dianggap berfungsi.
 
@@ -27,7 +27,7 @@ Pendekatan build bersifat **hibrid**: lokal melalui Termux dan cloud melalui Git
 | CI GitHub Actions (unit test + APK debug) | Tersedia (belum dijalankan) | 1 |
 | Splash, Dashboard, navigasi, tampilan Project Manager | Tersedia (belum terverifikasi di perangkat) | 2 |
 | Editor awal (buffer sementara, nomor baris, posisi kursor) | Tersedia (belum terverifikasi di perangkat) | 2 |
-| Membuat/membuka proyek, File Explorer, simpan file | Belum | 3 |
+| Buat/ganti nama/hapus proyek, buka folder (SAF), File Explorer, buat/ganti nama/hapus file, simpan file | Ditulis, **belum dikompilasi/diuji** | 3 |
 | Code Editor lengkap (highlighting, undo, multi-tab) | Belum | 4 |
 | Terminal dan integrasi Termux | Belum | 5 |
 | Build Gradle (debug/release/AAB) | Belum | 6 |
@@ -35,7 +35,7 @@ Pendekatan build bersifat **hibrid**: lokal melalui Termux dan cloud melalui Git
 | Signing, GitHub, Cloud Build | Belum | 8–10 |
 | Error Analyzer, Preview, Settings lengkap | Belum | 11–13 |
 
-Detail lengkap: [`docs/ROADMAP.md`](docs/ROADMAP.md), [`docs/CHECKLIST.md`](docs/CHECKLIST.md), laporan tahap: [`docs/TAHAP-1.md`](docs/TAHAP-1.md), [`docs/TAHAP-2.md`](docs/TAHAP-2.md).
+Detail lengkap: [`docs/ROADMAP.md`](docs/ROADMAP.md), [`docs/CHECKLIST.md`](docs/CHECKLIST.md), laporan tahap: [`docs/TAHAP-1.md`](docs/TAHAP-1.md), [`docs/TAHAP-2.md`](docs/TAHAP-2.md), [`docs/TAHAP-3.md`](docs/TAHAP-3.md).
 
 ## Screenshots
 
@@ -83,7 +83,7 @@ app/            Presentation: Compose UI, navigasi, DI
 domain/         Model, kontrak repository, use case (Kotlin murni)
 data/           Implementasi repository
 core/common     Logging, dispatcher, crash reporter
-core/project    (repository sementara; penyimpanan nyata Tahap 3)
+core/project    Penyimpanan proyek berbasis folder, operasi file, impor/ekspor SAF (Tahap 3)
 core/editor     (metrik teks editor awal; fitur penuh Tahap 4)
 core/terminal   (direncanakan, Tahap 5)
 core/builder    (direncanakan, Tahap 6)
@@ -100,7 +100,9 @@ Keystore dan rahasia **tidak** disimpan di repository; signing release lewat Git
 
 - Tahap 1 belum diverifikasi di perangkat; lihat [`docs/TAHAP-1.md`](docs/TAHAP-1.md).
 - Gradle Wrapper dibuat oleh `scripts/setup-wrapper.sh` (atau otomatis oleh CI), belum ikut di repository.
-- Belum ada penyimpanan proyek/file: daftar proyek selalu kosong dan isi Editor awal hilang saat aplikasi ditutup.
+- Tahap 3 belum pernah dikompilasi atau dijalankan; lihat [`docs/TAHAP-3.md`](docs/TAHAP-3.md) untuk status verifikasi yang jujur.
+- Belum ada simpan otomatis: perubahan file yang belum disimpan hilang bila aplikasi ditutup (Tahap 4). Buffer sementara dari Beranda tidak disimpan ke file.
+- Template proyek Android hanya kerangka Gradle; kemampuannya dibangun baru diuji pada Tahap 6.
 - Layar Build, GitHub, dan Terminal masih berupa penanda "belum tersedia".
 - Build lokal di HP bergantung pada Termux, JDK, dan SDK yang kompatibel; belum diuji.
 

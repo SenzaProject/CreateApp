@@ -32,9 +32,15 @@ Contoh 1 — informasi aplikasi (Pengaturan):
 
 Contoh 2 — daftar proyek (Dashboard dan Project Manager):
 `ProjectsScreen` / `HomeScreen` → `ProjectsViewModel` / `HomeViewModel` → `ObserveProjectsUseCase` → `ProjectRepository`
-(kontrak di `:domain`) → `EmptyProjectRepository` (sementara, `:core:project`) → `Flow<List<Project>>`.
+(kontrak di `:domain`) → `FileProjectRepository` (`:core:project`, membaca folder `filesDir/projects`) → `Flow<List<Project>>`.
 Penyaringan dan pengurutan memakai fungsi murni `filterProjects` di `:domain` (diuji unit test).
-Pada Tahap 3 hanya implementasi repository yang diganti; UI dan use case tidak berubah.
+Daftar disegarkan setiap kali `ProjectStorage.changes` naik (buat/ganti nama/hapus/simpan file).
+
+Contoh 3 — File Explorer dan simpan file (Tahap 3):
+`ExplorerScreen` → `ExplorerViewModel` → `ProjectFilesRepository` (kontrak di `:domain`) → `FileProjectFilesRepository`
+(`:core:project`) → `AppResult<…>`. Mengetuk file memanggil `EditorViewModel.openProjectFile` (berskala Activity) lalu membuka
+layar Editor; `EditorViewModel.save` menulis lewat `ProjectFilesRepository.writeText` (atomik).
+Impor/ekspor folder: `ProjectsViewModel` → `ProjectTransferRepository` → `SafProjectTransfer` (SAF; penyalinan lewat `TreeCopier`).
 
 State yang ditulis pengguna secara langsung (teks pencarian, isi editor) disimpan sebagai state Compose sinkron di
 ViewModel agar pengetikan tidak tertunda atau melompat.
@@ -62,7 +68,11 @@ ViewModel agar pengetikan tidak tertunda atau melompat.
 | Rute navigasi string | Menghindari plugin serialization. |
 | `popUpTo(HOME)` untuk tab utama | Splash dihapus dari back stack, sehingga dasar back stack adalah Home. |
 | Buffer editor di ViewModel level Activity | Bertahan saat layar Editor ditutup lalu dibuka lagi; bukan penyimpanan permanen. |
-| `EmptyProjectRepository` | UI Tahap 2 tampil jujur tanpa data palsu; diganti penyimpanan nyata di Tahap 3. |
+| Proyek = folder di `filesDir/projects` (tanpa database) | Folder adalah satu-satunya sumber kebenaran, jadi tidak ada indeks yang bisa tidak sinkron. Metadata (`.createapp/project.properties`) ditulis atomik; metadata rusak/hilang tidak membuat proyek hilang. Tidak butuh izin penyimpanan luas. |
+| Impor/ekspor lewat SAF (salin, bukan tautan) | Pengguna memilih folder lewat pemilih sistem; impor menyalin ke penyimpanan privat lewat folder staging lalu dipindahkan, sehingga proyek tidak setengah jadi dan tidak bergantung pada izin SAF yang bisa dicabut. |
+| Id proyek = nama folder, tetap saat ganti nama | Ganti nama hanya mengubah nama tampilan; tidak ada path yang berubah dan tidak ada tabrakan folder. |
+| Penulisan file atomik (`.tmp` + `ATOMIC_MOVE`) | Bila proses mati saat menyimpan, file lama tetap utuh. Dekode UTF-8 ketat agar file non-UTF-8 tidak rusak saat disimpan ulang. |
+| Semua path melewati `ProjectStorage.resolve` | Menolak `..`, path absolut, folder metadata, dan symlink yang keluar dari folder proyek. |
 | Tidak ada izin di manifest | Izin ditambahkan hanya saat fiturnya ada. |
 
 ## Versi toolchain
