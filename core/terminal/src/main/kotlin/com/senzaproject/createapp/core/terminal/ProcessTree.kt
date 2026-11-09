@@ -28,7 +28,7 @@ internal object ProcessTree {
         )
     }
 
-    private fun pidOf(process: Process): Int = try {
+    fun pidOf(process: Process): Int = try {
         val field = process.javaClass.getDeclaredField("pid")
         field.isAccessible = true
         field.getInt(process)
@@ -36,7 +36,7 @@ internal object ProcessTree {
         -1
     }
 
-    private fun descendantsOf(rootPid: Int): List<Int> {
+    fun descendantsOf(rootPid: Int): List<Int> {
         val children = HashMap<Int, MutableList<Int>>()
         val entries = File("/proc").listFiles() ?: return emptyList()
         for (entry in entries) {
@@ -66,7 +66,13 @@ internal object ProcessTree {
         null
     }
 
-    private fun isAlive(pid: Int): Boolean = File("/proc/$pid").exists()
+    /** Hidup bila masih ada di /proc dan bukan zombie (state `Z`, belum dituai induknya). */
+    fun isAlive(pid: Int): Boolean = try {
+        val stat = File("/proc/$pid/stat").readText()
+        stat.getOrNull(stat.lastIndexOf(')') + 2) != 'Z'
+    } catch (e: Throwable) {
+        false
+    }
 
     private fun signal(pid: Int, option: String) {
         try {
