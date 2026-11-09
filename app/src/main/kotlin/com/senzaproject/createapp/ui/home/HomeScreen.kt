@@ -105,7 +105,7 @@ fun HomeScreen(
         ActionTileData(
             icon = terminalIcon,
             title = stringResource(R.string.tile_terminal),
-            subtitle = stringResource(R.string.tile_stage, 5),
+            subtitle = stringResource(R.string.tile_terminal_sub),
             color = TileOrange,
             onClick = navigation.onTerminal,
         ),

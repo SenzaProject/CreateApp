@@ -3,7 +3,6 @@ package com.senzaproject.createapp.navigation
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Cloud
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -29,6 +28,8 @@ import com.senzaproject.createapp.ui.projects.ProjectsViewModel
 import com.senzaproject.createapp.ui.settings.SettingsScreen
 import com.senzaproject.createapp.ui.settings.SettingsViewModel
 import com.senzaproject.createapp.ui.splash.SplashScreen
+import com.senzaproject.createapp.ui.terminal.TerminalScreen
+import com.senzaproject.createapp.ui.terminal.TerminalViewModel
 
 /**
  * @param activityViewModelStoreOwner pemilik ViewModel level Activity; dipakai agar buffer editor
@@ -136,11 +137,13 @@ fun CreateAppNavHost(
         }
 
         composable(Routes.TERMINAL) {
-            PlaceholderScreen(
-                title = stringResource(R.string.title_terminal),
-                description = stringResource(R.string.placeholder_terminal_desc),
-                plannedStage = 5,
-                icon = Icons.Filled.PlayArrow,
+            // ViewModel berskala Activity: scrollback, masukan, dan perintah yang berjalan bertahan saat pindah layar.
+            val viewModel: TerminalViewModel = viewModel(
+                viewModelStoreOwner = activityViewModelStoreOwner,
+                factory = viewModelFactory,
+            )
+            TerminalScreen(
+                viewModel = viewModel,
                 onBack = { navController.popBackStack() },
             )
         }

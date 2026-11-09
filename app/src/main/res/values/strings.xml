@@ -17,7 +17,6 @@
     <string name="placeholder_not_available">Fitur ini belum tersedia</string>
     <string name="placeholder_planned_stage">Dijadwalkan pada Tahap %1$d</string>
     <string name="placeholder_build_desc">Build Gradle nyata (debug, release, AAB) dengan log, progres, dan pembatalan.</string>
-    <string name="placeholder_terminal_desc">Terminal developer dan integrasi Termux melalui mekanisme resmi.</string>
     <string name="placeholder_github_desc">Autentikasi aman, clone, commit, push, pull, dan manajemen branch.</string>
 
     <!-- Beranda -->
@@ -177,4 +176,58 @@
     <string name="editor_msg_saved">Tersimpan.</string>
     <string name="editor_msg_save_failed">Gagal menyimpan: %1$s</string>
     <string name="editor_msg_load_failed">Gagal membuka file: %1$s</string>
+
+    <!-- Terminal (Tahap 5) -->
+    <string name="terminal_backend_local">Shell lokal</string>
+    <string name="terminal_backend_termux">Termux</string>
+    <string name="terminal_directory_menu">Direktori kerja</string>
+    <string name="terminal_dir_home">Direktori awal</string>
+    <string name="terminal_dir_projects">Folder proyek</string>
+    <string name="terminal_input_hint">Ketik perintah…</string>
+    <string name="terminal_send">Jalankan</string>
+    <string name="terminal_stop">Hentikan</string>
+    <string name="terminal_clear">Bersihkan layar</string>
+    <string name="terminal_copy_all">Salin semua output</string>
+    <string name="terminal_copied">Output disalin.</string>
+    <string name="terminal_command_copied">Perintah disalin.</string>
+    <string name="terminal_history_previous">Perintah sebelumnya</string>
+    <string name="terminal_history_next">Perintah berikutnya</string>
+    <string name="terminal_empty_hint">Ketik help untuk melihat perintah bawaan.</string>
+    <string name="terminal_exit_ok">✓ Selesai (kode keluar 0)</string>
+    <string name="terminal_exit_fail">✗ Gagal (kode keluar %1$d)</string>
+    <string name="terminal_cancelled_local">■ Dihentikan.</string>
+    <string name="terminal_cancelled_termux">■ Berhenti menunggu. Proses di Termux mungkin masih berjalan.</string>
+    <string name="terminal_output_limit">Output melebihi batas, perintah dihentikan.</string>
+    <string name="terminal_dir_not_found">cd: folder tidak ditemukan: %1$s</string>
+    <string name="terminal_cd_usage">cd: gunakan satu argumen dan beri tanda kutip bila ada spasi, mis. cd \"nama folder\"</string>
+    <string name="terminal_help">Perintah bawaan:\n  help       tampilkan bantuan ini\n  clear      bersihkan layar\n  history    tampilkan riwayat perintah\n  cd [dir]   pindah direktori (mendukung ~, .. dan path relatif)\nPerintah lain dijalankan di shell backend yang dipilih. Setiap perintah berjalan di proses baru, jadi variabel dan cd di dalam shell tidak bertahan.</string>
+
+    <string name="terminal_failure_invalid_directory">Direktori kerja tidak valid.</string>
+    <string name="terminal_failure_start">Perintah tidak bisa dimulai.</string>
+    <string name="terminal_failure_io">Terjadi kesalahan saat menjalankan perintah.</string>
+    <string name="terminal_failure_timeout">Waktu tunggu hasil dari Termux habis.</string>
+    <string name="terminal_failure_termux_not_installed">Termux belum terpasang.</string>
+    <string name="terminal_failure_termux_permission">Izin menjalankan perintah di Termux belum diberikan.</string>
+    <string name="terminal_failure_termux_rejected">Termux menolak atau tidak bisa dihubungi.</string>
+    <string name="terminal_failure_termux_external">Termux menolak karena allow-external-apps belum aktif. Buka Panduan Termux, salin perintahnya, jalankan di Termux, lalu coba lagi.</string>
+    <string name="terminal_failure_termux_error">Termux melaporkan kesalahan.</string>
+    <string name="terminal_failure_termux_no_result">Termux tidak mengirim hasil perintah.</string>
+    <string name="terminal_notice_no_response">Belum ada respons dari Termux. Perintah mungkin masih berjalan, atau allow-external-apps belum aktif. Tekan Hentikan untuk berhenti menunggu.</string>
+    <string name="terminal_notice_truncated">Termux memotong output (maksimal sekitar 100 KB); bagian awal mungkin hilang.</string>
+
+    <string name="terminal_termux_title">Menghubungkan Termux</string>
+    <string name="terminal_termux_not_installed">Termux belum terpasang. Pasang Termux dari F-Droid atau halaman rilis GitHub-nya, lalu buka sekali sebelum kembali ke sini.</string>
+    <string name="terminal_termux_permission_needed">Create App perlu izin \"Run commands in Termux environment\" agar bisa mengirim perintah ke Termux. Bila tombol di bawah tidak memunculkan dialog, buka Pengaturan aplikasi lalu Izin lalu Izin tambahan.</string>
+    <string name="terminal_termux_grant">Beri izin</string>
+    <string name="terminal_termux_app_settings">Pengaturan aplikasi</string>
+    <string name="terminal_termux_step_properties">Di Termux, aktifkan allow-external-apps. Salin perintah ini, tempel di Termux, lalu jalankan:</string>
+    <string name="terminal_termux_copy_command">Salin perintah</string>
+    <string name="terminal_termux_open">Buka Termux</string>
+    <string name="terminal_termux_ready_version">Termux terdeteksi (versi %1$s) dan izin sudah diberikan.</string>
+    <string name="terminal_termux_ready">Termux terdeteksi dan izin sudah diberikan.</string>
+    <string name="terminal_termux_limits">Batasan: output baru muncul setelah perintah selesai, Hentikan hanya berhenti menunggu, dan folder proyek Create App tidak bisa diakses Termux.</string>
+    <string name="terminal_termux_help_show">Panduan Termux</string>
+    <string name="terminal_termux_help_hide">Sembunyikan panduan</string>
+
+    <string name="tile_terminal_sub">Shell dan Termux</string>
 </resources>

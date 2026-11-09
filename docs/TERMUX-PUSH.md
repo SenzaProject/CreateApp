@@ -25,30 +25,57 @@ git remote add origin https://github.com/SenzaProject/CreateApp.git
 git push -u origin main
 ```
 
-## Memperbarui repository yang sudah ada (Tahap 2 -> Tahap 3)
+## Memperbarui repository yang sudah ada (setiap tahap baru)
 
-Tahap baru **menghapus** satu berkas lama (`EmptyProjectRepository.kt`). Menyalin berkas di atas repository
-lama saja akan meninggalkan berkas itu dan membuat build gagal, jadi isi repository diganti seluruhnya
-(kecuali `.git`):
+Cara paling mudah memakai `scripts/termux-update.sh`. Skrip ini mengganti isi repo dengan isi zip (file yang dihapus di tahap
+baru ikut terhapus, `.git` tidak disentuh), lalu commit dan push. Ia menolak berjalan bila bukan repo CreateApp, bila ada
+perubahan lokal yang belum di-commit, atau bila isi zip tidak tampak seperti proyek CreateApp.
+
+```sh
+cd ~/CreateApp                                  # folder repo hasil clone/push sebelumnya (sesuaikan)
+git status                                      # harus bersih ("nothing to commit")
+git config user.email                           # pastikan email akun GitHub Anda; bila kosong:
+# git config user.email "EMAIL_GITHUB_ANDA" && git config user.name "SenzaProject"
+
+# Update pertama kali (repo lama belum punya skrip): ambil skrip dari zip dulu
+mkdir -p ~/tmp-update
+unzip -o -q /sdcard/Download/CreateApp-Tahap5.zip 'CreateApp/scripts/termux-update.sh' -d ~/tmp-update
+sh ~/tmp-update/CreateApp/scripts/termux-update.sh /sdcard/Download/CreateApp-Tahap5.zip "Tahap 5: Terminal dan integrasi Termux"
+```
+
+Untuk tahap berikutnya skrip sudah ada di repo, cukup:
+
+```sh
+cd ~/CreateApp
+sh scripts/termux-update.sh /sdcard/Download/CreateApp-TahapN.zip "Tahap N: ringkasan"
+```
+
+Bila file zip ada di Download dan Termux belum punya akses penyimpanan, jalankan `termux-setup-storage` sekali dan izinkan.
+Lupa lokasi repo? `find ~ -maxdepth 3 -name .git -path "*CreateApp*"`.
+
+### Cara manual (tanpa skrip)
 
 ```sh
 cd ~
-rm -rf CreateApp-repo CreateApp-tahap3
+rm -rf CreateApp-repo CreateApp-baru
 git clone https://github.com/SenzaProject/CreateApp.git CreateApp-repo
-mkdir CreateApp-tahap3 && unzip -q /sdcard/Download/CreateApp-Tahap3.zip -d CreateApp-tahap3
+mkdir CreateApp-baru && unzip -q /sdcard/Download/CreateApp-Tahap5.zip -d CreateApp-baru
 
 cd CreateApp-repo
 git config user.name  "SenzaProject"
 git config user.email "EMAIL_GITHUB_ANDA"
 
 find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +    # kosongkan isi lama, simpan .git
-cp -a ../CreateApp-tahap3/CreateApp/. .                          # salin isi Tahap 3
+cp -a ../CreateApp-baru/CreateApp/. .                            # salin isi tahap baru
 
 git add -A
-git status                                 # periksa daftar: berkas baru, diubah, dan 1 dihapus
-git commit -m "Tahap 3: Project Manager dan File Explorer"
+git status                                 # periksa daftar berkas baru, diubah, dihapus
+git commit -m "Tahap 5: Terminal dan integrasi Termux"
 git push origin HEAD
 ```
+
+Isi repository harus diganti seluruhnya (bukan sekadar disalin di atasnya), karena tahap baru bisa menghapus berkas lama
+dan sisa berkas lama membuat build gagal.
 
 ## Autentikasi
 

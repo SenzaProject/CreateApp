@@ -26,6 +26,8 @@ Gunakan checklist ini untuk melacak progres. Tandai hanya setelah bukti implemen
 - [ ] Uji pemulihan data
 
 ## Tahap 4 — Code Editor
+> Catatan: berkas `CreateAppTahap4.zip` yang menjadi dasar Tahap 5 ternyata masih berisi kode Tahap 3 (editor belum punya highlighting,
+> undo/redo, atau multi-tab). Tahap 4 **belum dikerjakan** dan tidak dicentang.
 - [ ] Syntax highlighting
 - [ ] Line numbers dan indentasi
 - [ ] Search/replace
@@ -33,6 +35,8 @@ Gunakan checklist ini untuk melacak progres. Tandai hanya setelah bukti implemen
 - [ ] Auto-save dan uji file besar
 
 ## Tahap 5 — Termux
+> Kode dan unit test ditulis (lihat `docs/TAHAP-5.md`), tetapi **belum dikompilasi dan belum dijalankan di perangkat**. Jangan dicentang
+> sebelum ada bukti: CI hijau dan daftar uji perangkat di `docs/TAHAP-5.md` lulus (khususnya integrasi Termux).
 - [ ] Deteksi Termux
 - [ ] Izin dan integrasi resmi
 - [ ] Jalankan perintah

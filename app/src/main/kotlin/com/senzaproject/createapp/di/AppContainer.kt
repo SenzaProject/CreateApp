@@ -1,6 +1,7 @@
 package com.senzaproject.createapp.di
 
 import android.app.Application
+import android.os.Build
 import com.senzaproject.createapp.BuildConfig
 import com.senzaproject.createapp.R
 import com.senzaproject.createapp.core.builder.BuilderModule
@@ -17,7 +18,11 @@ import com.senzaproject.createapp.core.project.FileProjectRepository
 import com.senzaproject.createapp.core.project.ProjectModule
 import com.senzaproject.createapp.core.project.ProjectStorage
 import com.senzaproject.createapp.core.project.SafProjectTransfer
+import com.senzaproject.createapp.core.terminal.AndroidTermuxEnvironment
+import com.senzaproject.createapp.core.terminal.LocalShellRunner
 import com.senzaproject.createapp.core.terminal.TerminalModule
+import com.senzaproject.createapp.core.terminal.TermuxCommandRunner
+import com.senzaproject.createapp.core.terminal.TermuxPaths
 import com.senzaproject.createapp.data.DataModule
 import com.senzaproject.createapp.data.diagnostics.AndroidDeviceInfoSource
 import com.senzaproject.createapp.data.diagnostics.DiagnosticsRepositoryImpl
@@ -32,6 +37,10 @@ import com.senzaproject.createapp.domain.project.ObserveProjectsUseCase
 import com.senzaproject.createapp.domain.project.ProjectFilesRepository
 import com.senzaproject.createapp.domain.project.ProjectRepository
 import com.senzaproject.createapp.domain.project.ProjectTransferRepository
+import com.senzaproject.createapp.domain.terminal.DirectoryChecker
+import com.senzaproject.createapp.domain.terminal.TerminalBackend
+import com.senzaproject.createapp.domain.terminal.TerminalSession
+import com.senzaproject.createapp.domain.terminal.TermuxEnvironment
 import java.io.File
 
 /**
@@ -105,4 +114,39 @@ class AppContainer(application: Application) {
     )
 
     val observeProjects = ObserveProjectsUseCase(projectRepository)
+
+    /** Path folder proyek untuk dipakai sebagai direktori kerja shell lokal. Melempar bila id tidak valid. */
+    fun projectDirectoryPath(projectId: String): String = projectStorage.projectDir(projectId).absolutePath
+
+    // --- Terminal (Tahap 5) ---
+
+    val termuxEnvironment: TermuxEnvironment = AndroidTermuxEnvironment(application)
+
+    private val appHomeDirectory: String = application.filesDir.absolutePath
+
+    /**
+     * Satu sesi terminal untuk seluruh proses aplikasi sehingga scrollback dan riwayat bertahan saat
+     * berpindah layar. Shell lokal memakai `filesDir` sebagai awal; Termux memakai home Termux.
+     */
+    val terminalSession = TerminalSession(
+        runners = mapOf(
+            TerminalBackend.LOCAL_SHELL to LocalShellRunner(
+                homeDirectory = appHomeDirectory,
+                // ProcessHandle (untuk mematikan proses turunan) baru ada di Android 13.
+                killDescendants = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU,
+            ),
+            TerminalBackend.TERMUX to TermuxCommandRunner(
+                context = application,
+                environment = termuxEnvironment,
+            ),
+        ),
+        homeDirectories = mapOf(
+            TerminalBackend.LOCAL_SHELL to appHomeDirectory,
+            TerminalBackend.TERMUX to TermuxPaths.HOME,
+        ),
+        // Sistem file Termux tidak bisa dibaca dari aplikasi ini, jadi `cd` di Termux tidak divalidasi di sini.
+        directoryChecker = DirectoryChecker { backend, path ->
+            backend == TerminalBackend.TERMUX || File(path).isDirectory
+        },
+    )
 }

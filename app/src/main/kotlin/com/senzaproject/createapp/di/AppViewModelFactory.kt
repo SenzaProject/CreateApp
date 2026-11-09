@@ -7,6 +7,7 @@ import com.senzaproject.createapp.ui.explorer.ExplorerViewModel
 import com.senzaproject.createapp.ui.home.HomeViewModel
 import com.senzaproject.createapp.ui.projects.ProjectsViewModel
 import com.senzaproject.createapp.ui.settings.SettingsViewModel
+import com.senzaproject.createapp.ui.terminal.TerminalViewModel
 
 /** Pabrik ViewModel tunggal yang menyuntikkan dependensi dari [AppContainer]. */
 class AppViewModelFactory(
@@ -39,6 +40,13 @@ class AppViewModelFactory(
 
         modelClass.isAssignableFrom(EditorViewModel::class.java) -> EditorViewModel(
             files = container.projectFiles,
+        ) as T
+
+        modelClass.isAssignableFrom(TerminalViewModel::class.java) -> TerminalViewModel(
+            session = container.terminalSession,
+            termux = container.termuxEnvironment,
+            observeProjects = container.observeProjects,
+            projectDirectory = container::projectDirectoryPath,
         ) as T
 
         else -> throw IllegalArgumentException("ViewModel tidak dikenal: ${modelClass.name}")

@@ -4,14 +4,14 @@ import com.senzaproject.createapp.domain.module.ModuleInfo
 import com.senzaproject.createapp.domain.module.ModuleStatus
 
 /**
- * Kerangka modul Terminal. BELUM ada fitur yang diimplementasikan di sini:
- * modul ini baru dihubungkan ke proyek pada Tahap 1 dan diisi pada Tahap 5.
+ * Modul Terminal (Tahap 5): shell lokal Android dan integrasi Termux lewat `RUN_COMMAND`.
+ * Status IN_PROGRESS (bukan READY) sampai CI hijau dan uji perangkat lulus.
  */
 object TerminalModule {
     val info = ModuleInfo(
         id = ":core:terminal",
         name = "Terminal",
         plannedStage = 5,
-        status = ModuleStatus.PLANNED,
+        status = ModuleStatus.IN_PROGRESS,
     )
 }

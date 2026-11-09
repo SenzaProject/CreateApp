@@ -2,9 +2,16 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <!--
-        Tahap 1 sengaja tidak meminta izin apa pun (tidak ada INTERNET, tidak ada akses
-        penyimpanan). Izin ditambahkan hanya saat fitur yang membutuhkannya diimplementasikan.
+        Izin sengaja minimal: tidak ada INTERNET dan tidak ada akses penyimpanan luas.
+        Tahap 5 menambahkan satu-satunya izin: menjalankan perintah di Termux (izin kustom yang
+        didefinisikan Termux; pengguna harus memberikannya, lihat docs/TAHAP-5.md).
     -->
+    <uses-permission android:name="com.termux.permission.RUN_COMMAND" />
+
+    <!-- Android 11+: tanpa ini Create App tidak bisa mendeteksi maupun menghubungi Termux. -->
+    <queries>
+        <package android:name="com.termux" />
+    </queries>
 
     <application
         android:name=".CreateAppApplication"

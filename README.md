@@ -8,7 +8,8 @@
   Android IDE &amp; APK Builder — dikembangkan oleh <b>SenzaProject</b>
 </p>
 
-> **Status: Tahap 3 (Project Manager dan File Explorer) — kode dan unit test ditulis, menunggu CI dan uji di perangkat.**
+> **Status: Tahap 5 (Terminal dan integrasi Termux) — kode dan unit test ditulis, menunggu CI dan uji di perangkat.**
+> Catatan: Code Editor lengkap (Tahap 4) **belum ada** di kode ini; lihat [`docs/TAHAP-5.md`](docs/TAHAP-5.md).
 > Proyek ini sedang dibangun bertahap. Hanya fitur yang tercantum sebagai **Tersedia** di bawah
 > yang sudah ada; sisanya direncanakan dan tidak boleh dianggap berfungsi.
 
@@ -29,13 +30,13 @@ Pendekatan build bersifat **hibrid**: lokal melalui Termux dan cloud melalui Git
 | Editor awal (buffer sementara, nomor baris, posisi kursor) | Tersedia (belum terverifikasi di perangkat) | 2 |
 | Buat/ganti nama/hapus proyek, buka folder (SAF), File Explorer, buat/ganti nama/hapus file, simpan file | Ditulis, **belum dikompilasi/diuji** | 3 |
 | Code Editor lengkap (highlighting, undo, multi-tab) | Belum | 4 |
-| Terminal dan integrasi Termux | Belum | 5 |
+| Terminal (shell lokal + Termux via RUN_COMMAND), riwayat, `cd`, hentikan perintah | Ditulis, **belum dikompilasi/diuji di perangkat** | 5 |
 | Build Gradle (debug/release/AAB) | Belum | 6 |
 | APK Manager | Belum | 7 |
 | Signing, GitHub, Cloud Build | Belum | 8–10 |
 | Error Analyzer, Preview, Settings lengkap | Belum | 11–13 |
 
-Detail lengkap: [`docs/ROADMAP.md`](docs/ROADMAP.md), [`docs/CHECKLIST.md`](docs/CHECKLIST.md), laporan tahap: [`docs/TAHAP-1.md`](docs/TAHAP-1.md), [`docs/TAHAP-2.md`](docs/TAHAP-2.md), [`docs/TAHAP-3.md`](docs/TAHAP-3.md).
+Detail lengkap: [`docs/ROADMAP.md`](docs/ROADMAP.md), [`docs/CHECKLIST.md`](docs/CHECKLIST.md), laporan tahap: [`docs/TAHAP-1.md`](docs/TAHAP-1.md), [`docs/TAHAP-2.md`](docs/TAHAP-2.md), [`docs/TAHAP-3.md`](docs/TAHAP-3.md), [`docs/TAHAP-5.md`](docs/TAHAP-5.md).
 
 ## Screenshots
 
@@ -85,7 +86,7 @@ data/           Implementasi repository
 core/common     Logging, dispatcher, crash reporter
 core/project    Penyimpanan proyek berbasis folder, operasi file, impor/ekspor SAF (Tahap 3)
 core/editor     (metrik teks editor awal; fitur penuh Tahap 4)
-core/terminal   (direncanakan, Tahap 5)
+core/terminal   Shell lokal Android dan integrasi Termux (RUN_COMMAND) (Tahap 5)
 core/builder    (direncanakan, Tahap 6)
 core/git        (direncanakan, Tahap 9)
 ```
@@ -103,7 +104,8 @@ Keystore dan rahasia **tidak** disimpan di repository; signing release lewat Git
 - Tahap 3 belum pernah dikompilasi atau dijalankan; lihat [`docs/TAHAP-3.md`](docs/TAHAP-3.md) untuk status verifikasi yang jujur.
 - Belum ada simpan otomatis: perubahan file yang belum disimpan hilang bila aplikasi ditutup (Tahap 4). Buffer sementara dari Beranda tidak disimpan ke file.
 - Template proyek Android hanya kerangka Gradle; kemampuannya dibangun baru diuji pada Tahap 6.
-- Layar Build, GitHub, dan Terminal masih berupa penanda "belum tersedia".
+- Layar Build dan GitHub masih berupa penanda "belum tersedia".
+- Terminal Tahap 5 belum pernah dikompilasi atau diuji di perangkat; integrasi Termux khususnya hanya bisa dibuktikan di HP. Lihat [`docs/TAHAP-5.md`](docs/TAHAP-5.md).
 - Build lokal di HP bergantung pada Termux, JDK, dan SDK yang kompatibel; belum diuji.
 
 ## Roadmap

@@ -17,7 +17,6 @@
     <string name="placeholder_not_available">This feature is not available yet</string>
     <string name="placeholder_planned_stage">Planned for Stage %1$d</string>
     <string name="placeholder_build_desc">Real Gradle builds (debug, release, AAB) with logs, progress, and cancellation.</string>
-    <string name="placeholder_terminal_desc">Developer terminal and Termux integration through the official mechanism.</string>
     <string name="placeholder_github_desc">Secure authentication, clone, commit, push, pull, and branch management.</string>
 
     <!-- Home -->
@@ -91,4 +90,58 @@
     <string name="editor_status_position">Line %1$d, Col %2$d</string>
     <string name="editor_status_lines">%1$d lines</string>
     <string name="editor_status_chars">%1$d characters</string>
+
+    <!-- Terminal (Stage 5) -->
+    <string name="terminal_backend_local">Local shell</string>
+    <string name="terminal_backend_termux">Termux</string>
+    <string name="terminal_directory_menu">Working directory</string>
+    <string name="terminal_dir_home">Home directory</string>
+    <string name="terminal_dir_projects">Project folders</string>
+    <string name="terminal_input_hint">Type a command…</string>
+    <string name="terminal_send">Run</string>
+    <string name="terminal_stop">Stop</string>
+    <string name="terminal_clear">Clear screen</string>
+    <string name="terminal_copy_all">Copy all output</string>
+    <string name="terminal_copied">Output copied.</string>
+    <string name="terminal_command_copied">Command copied.</string>
+    <string name="terminal_history_previous">Previous command</string>
+    <string name="terminal_history_next">Next command</string>
+    <string name="terminal_empty_hint">Type help to see the built-in commands.</string>
+    <string name="terminal_exit_ok">✓ Done (exit code 0)</string>
+    <string name="terminal_exit_fail">✗ Failed (exit code %1$d)</string>
+    <string name="terminal_cancelled_local">■ Stopped.</string>
+    <string name="terminal_cancelled_termux">■ Stopped waiting. The process in Termux may still be running.</string>
+    <string name="terminal_output_limit">Output exceeded the limit; the command was stopped.</string>
+    <string name="terminal_dir_not_found">cd: folder not found: %1$s</string>
+    <string name="terminal_cd_usage">cd: use a single argument and quote it if it contains spaces, e.g. cd \"folder name\"</string>
+    <string name="terminal_help">Built-in commands:\n  help       show this help\n  clear      clear the screen\n  history    show command history\n  cd [dir]   change directory (supports ~, .. and relative paths)\nAny other command runs in the selected backend shell. Every command runs in a new process, so variables and cd inside the shell do not persist.</string>
+
+    <string name="terminal_failure_invalid_directory">Invalid working directory.</string>
+    <string name="terminal_failure_start">The command could not be started.</string>
+    <string name="terminal_failure_io">An error occurred while running the command.</string>
+    <string name="terminal_failure_timeout">Timed out waiting for Termux.</string>
+    <string name="terminal_failure_termux_not_installed">Termux is not installed.</string>
+    <string name="terminal_failure_termux_permission">Permission to run commands in Termux has not been granted.</string>
+    <string name="terminal_failure_termux_rejected">Termux rejected the request or could not be reached.</string>
+    <string name="terminal_failure_termux_external">Termux refused because allow-external-apps is not enabled. Open the Termux guide, copy the command, run it in Termux, then try again.</string>
+    <string name="terminal_failure_termux_error">Termux reported an error.</string>
+    <string name="terminal_failure_termux_no_result">Termux did not send a result.</string>
+    <string name="terminal_notice_no_response">No response from Termux yet. The command may still be running, or allow-external-apps may not be enabled. Press Stop to stop waiting.</string>
+    <string name="terminal_notice_truncated">Termux truncated the output (about 100 KB maximum); the beginning may be missing.</string>
+
+    <string name="terminal_termux_title">Connecting Termux</string>
+    <string name="terminal_termux_not_installed">Termux is not installed. Install Termux from F-Droid or its GitHub releases page, and open it once before coming back here.</string>
+    <string name="terminal_termux_permission_needed">Create App needs the \"Run commands in Termux environment\" permission to send commands to Termux. If the button below shows no dialog, open App settings, then Permissions, then Additional permissions.</string>
+    <string name="terminal_termux_grant">Grant permission</string>
+    <string name="terminal_termux_app_settings">App settings</string>
+    <string name="terminal_termux_step_properties">In Termux, enable allow-external-apps. Copy this command, paste it in Termux and run it:</string>
+    <string name="terminal_termux_copy_command">Copy command</string>
+    <string name="terminal_termux_open">Open Termux</string>
+    <string name="terminal_termux_ready_version">Termux detected (version %1$s) and permission granted.</string>
+    <string name="terminal_termux_ready">Termux detected and permission granted.</string>
+    <string name="terminal_termux_limits">Limitations: output only appears after the command finishes, Stop only stops waiting, and Create App project folders are not accessible from Termux.</string>
+    <string name="terminal_termux_help_show">Termux guide</string>
+    <string name="terminal_termux_help_hide">Hide guide</string>
+
+    <string name="tile_terminal_sub">Shell and Termux</string>
 </resources>
