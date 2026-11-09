@@ -1,5 +1,7 @@
 package com.senzaproject.createapp.core.terminal
 
+import java.io.File
+
 /** Sekelompok proses turunan yang dapat dimatikan (halus lalu paksa). */
 internal class DescendantGroup(
     val terminate: () -> Unit,
@@ -7,19 +9,74 @@ internal class DescendantGroup(
 )
 
 /**
- * Mengumpulkan proses turunan. `ProcessHandle` baru ada di Android 13 (API 33), jadi semua
- * rujukan ke kelas itu sengaja dikurung di berkas ini dan hanya dipanggil bila API tersedia
- * (lihat parameter `killDescendants` pada [LocalShellRunner]).
+ * Mengumpulkan proses turunan tanpa `java.lang.ProcessHandle` (kelas itu tidak ada di android.jar,
+ * sehingga tidak bisa dikompilasi). Sebagai gantinya:
+ * - PID proses induk dibaca lewat refleksi pada field `pid` (ProcessImpl/UNIXProcess).
+ * - Turunan dicari dengan memindai `/proc/<pid>/stat` (kolom PPID).
+ * - Sinyal dikirim lewat perintah `kill`, yang tersedia di Android (toybox) maupun JVM Linux.
+ *
+ * Semua kegagalan ditelan: bila PID tidak terbaca, grup kosong dikembalikan.
  */
 internal object ProcessTree {
 
-    @Suppress("NewApi")
     fun capture(process: Process): DescendantGroup {
-        val handles = ArrayList<ProcessHandle>()
-        process.toHandle().descendants().forEach { handles.add(it) }
+        val rootPid = pidOf(process)
+        val pids = if (rootPid > 0) descendantsOf(rootPid) else emptyList()
         return DescendantGroup(
-            terminate = { for (handle in handles) handle.destroy() },
-            kill = { for (handle in handles) if (handle.isAlive) handle.destroyForcibly() },
+            terminate = { for (pid in pids) signal(pid, "-TERM") },
+            kill = { for (pid in pids) if (isAlive(pid)) signal(pid, "-KILL") },
         )
+    }
+
+    private fun pidOf(process: Process): Int = try {
+        val field = process.javaClass.getDeclaredField("pid")
+        field.isAccessible = true
+        field.getInt(process)
+    } catch (e: Throwable) {
+        -1
+    }
+
+    private fun descendantsOf(rootPid: Int): List<Int> {
+        val children = HashMap<Int, MutableList<Int>>()
+        val entries = File("/proc").listFiles() ?: return emptyList()
+        for (entry in entries) {
+            val pid = entry.name.toIntOrNull() ?: continue
+            val ppid = parentOf(pid) ?: continue
+            children.getOrPut(ppid) { ArrayList() }.add(pid)
+        }
+        val result = ArrayList<Int>()
+        val queue = ArrayDeque<Int>()
+        queue.add(rootPid)
+        while (queue.isNotEmpty()) {
+            val current = queue.removeFirst()
+            for (child in children[current].orEmpty()) {
+                result.add(child)
+                queue.add(child)
+            }
+        }
+        return result
+    }
+
+    /** Format stat: `pid (nama) state ppid ...`; nama bisa memuat spasi/kurung, jadi cari ')' terakhir. */
+    private fun parentOf(pid: Int): Int? = try {
+        val stat = File("/proc/$pid/stat").readText()
+        val afterName = stat.substring(stat.lastIndexOf(')') + 2).split(' ')
+        afterName[1].toIntOrNull()
+    } catch (e: Throwable) {
+        null
+    }
+
+    private fun isAlive(pid: Int): Boolean = File("/proc/$pid").exists()
+
+    private fun signal(pid: Int, option: String) {
+        try {
+            ProcessBuilder("kill", option, pid.toString())
+                .redirectErrorStream(true)
+                .start()
+                .also { it.outputStream.close() }
+                .waitFor()
+        } catch (e: Throwable) {
+            // proses sudah hilang atau kill tidak tersedia; abaikan.
+        }
     }
 }
