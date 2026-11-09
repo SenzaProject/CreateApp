@@ -11,7 +11,7 @@ internal class DescendantGroup(
 /**
  * Mengumpulkan proses turunan tanpa `java.lang.ProcessHandle` (kelas itu tidak ada di android.jar,
  * sehingga tidak bisa dikompilasi). Sebagai gantinya:
- * - PID proses induk dibaca lewat refleksi pada field `pid` (ProcessImpl/UNIXProcess).
+ * - PID proses induk dibaca lewat refleksi: method `pid()` bila ada, jika tidak field `pid`.
  * - Turunan dicari dengan memindai `/proc/<pid>/stat` (kolom PPID).
  * - Sinyal dikirim lewat perintah `kill`, yang tersedia di Android (toybox) maupun JVM Linux.
  *
@@ -28,12 +28,22 @@ internal object ProcessTree {
         )
     }
 
-    fun pidOf(process: Process): Int = try {
-        val field = process.javaClass.getDeclaredField("pid")
-        field.isAccessible = true
-        field.getInt(process)
-    } catch (e: Throwable) {
-        -1
+    fun pidOf(process: Process): Int {
+        // Java 9+ (JVM uji, Android 13+): Process.pid() lewat refleksi karena tidak ada di android.jar.
+        try {
+            val method = Process::class.java.getMethod("pid")
+            return (method.invoke(process) as Number).toInt()
+        } catch (e: Throwable) {
+            // lanjut ke field privat
+        }
+        // Android lama: field `pid` pada ProcessImpl/UNIXProcess.
+        return try {
+            val field = process.javaClass.getDeclaredField("pid")
+            field.isAccessible = true
+            field.getInt(process)
+        } catch (e: Throwable) {
+            -1
+        }
     }
 
     fun descendantsOf(rootPid: Int): List<Int> {
