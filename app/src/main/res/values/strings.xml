@@ -68,7 +68,6 @@
     <string name="tile_editor">Editor</string>
     <string name="tile_build_apk">Build APK</string>
     <string name="tile_build_apk_sub">Gradle, debug dan release</string>
-    <string name="tile_build_apk_sub">Gradle, debug dan release</string>
     <string name="tile_terminal">Terminal</string>
     <string name="tile_github">GitHub</string>
     <string name="tile_stage">Tahap %1$d</string>
