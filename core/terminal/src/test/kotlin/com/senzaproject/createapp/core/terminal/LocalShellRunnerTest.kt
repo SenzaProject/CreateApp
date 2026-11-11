@@ -161,10 +161,10 @@ class LocalShellRunnerTest {
             val process = checkNotNull(started)
 
             // Tunggu sampai `sleep` benar-benar menjadi proses turunan sebelum membatalkan.
-            val descendants = ArrayList<ProcessHandle>()
+            val descendants = ArrayList<Any>()
             waitUntil(5_000) {
                 descendants.clear()
-                process.descendants().forEach { descendants.add(it) }
+                descendantHandles(process).forEach { descendants.add(it) }
                 descendants.isNotEmpty()
             }
             assertTrue("sleep harus menjadi proses turunan", descendants.isNotEmpty())
@@ -172,7 +172,7 @@ class LocalShellRunnerTest {
             job.cancelAndJoin()
 
             assertTrue("proses shell harus mati", waitUntil(5_000) { !process.isAlive })
-            assertTrue("proses turunan harus mati", waitUntil(5_000) { descendants.none { it.isAlive } })
+            assertTrue("proses turunan harus mati", waitUntil(5_000) { descendants.none { handleAlive(it) } })
         }
     }
 
