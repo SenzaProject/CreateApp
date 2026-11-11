@@ -393,7 +393,7 @@ class BuildSessionTest {
                 CleanResult.Busy,
                 newSession(scope, FakeRunner { outputThenFinish("@@CA@error=ALREADY_RUNNING\n", 3) }).cleanTermuxWork(),
             )
-            val failed = session(
+            val failed = newSession(
                 scope,
                 FakeRunner { flow { emit(CommandEvent.Failed(TerminalFailure.TERMUX_ERROR, null)) } },
             ).cleanTermuxWork()
