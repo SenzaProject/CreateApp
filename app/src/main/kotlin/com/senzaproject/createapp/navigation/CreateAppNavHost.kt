@@ -1,7 +1,6 @@
 package com.senzaproject.createapp.navigation
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -15,6 +14,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.senzaproject.createapp.R
+import com.senzaproject.createapp.ui.builder.BuildScreen
+import com.senzaproject.createapp.ui.builder.BuildViewModel
 import com.senzaproject.createapp.ui.components.PlaceholderScreen
 import com.senzaproject.createapp.ui.editor.EditorScreen
 import com.senzaproject.createapp.ui.editor.EditorViewModel
@@ -103,11 +104,14 @@ fun CreateAppNavHost(
         }
 
         composable(Routes.BUILD) {
-            PlaceholderScreen(
-                title = stringResource(R.string.nav_build),
-                description = stringResource(R.string.placeholder_build_desc),
-                plannedStage = 6,
-                icon = Icons.Filled.Build,
+            // ViewModel berskala Activity agar pilihan dan hasil build tetap ada saat pindah tab.
+            val viewModel: BuildViewModel = viewModel(
+                viewModelStoreOwner = activityViewModelStoreOwner,
+                factory = viewModelFactory,
+            )
+            BuildScreen(
+                viewModel = viewModel,
+                onOpenTerminal = { navController.navigateSecondary(Routes.TERMINAL) },
             )
         }
 

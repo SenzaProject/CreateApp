@@ -5,6 +5,8 @@ import android.os.Build
 import com.senzaproject.createapp.BuildConfig
 import com.senzaproject.createapp.R
 import com.senzaproject.createapp.core.builder.BuilderModule
+import com.senzaproject.createapp.core.builder.FileBuildHistoryStore
+import com.senzaproject.createapp.core.builder.SharedPrefsBuildSettingsStore
 import com.senzaproject.createapp.core.common.AndroidLogger
 import com.senzaproject.createapp.core.common.AppDispatchers
 import com.senzaproject.createapp.core.common.CommonModule
@@ -17,6 +19,7 @@ import com.senzaproject.createapp.core.project.FileProjectFilesRepository
 import com.senzaproject.createapp.core.project.FileProjectRepository
 import com.senzaproject.createapp.core.project.ProjectModule
 import com.senzaproject.createapp.core.project.ProjectStorage
+import com.senzaproject.createapp.core.project.SafBuildWorkspace
 import com.senzaproject.createapp.core.project.SafProjectTransfer
 import com.senzaproject.createapp.core.terminal.AndroidTermuxEnvironment
 import com.senzaproject.createapp.core.terminal.LocalShellRunner
@@ -26,6 +29,11 @@ import com.senzaproject.createapp.core.terminal.TermuxPaths
 import com.senzaproject.createapp.data.DataModule
 import com.senzaproject.createapp.data.diagnostics.AndroidDeviceInfoSource
 import com.senzaproject.createapp.data.diagnostics.DiagnosticsRepositoryImpl
+import com.senzaproject.createapp.domain.builder.BuildCommandFactory
+import com.senzaproject.createapp.domain.builder.BuildHistoryStore
+import com.senzaproject.createapp.domain.builder.BuildSession
+import com.senzaproject.createapp.domain.builder.BuildSettingsStore
+import com.senzaproject.createapp.domain.builder.BuildWorkspace
 import com.senzaproject.createapp.domain.diagnostics.AppMetadata
 import com.senzaproject.createapp.domain.diagnostics.DiagnosticsRepository
 import com.senzaproject.createapp.domain.diagnostics.GetAppDiagnosticsUseCase
@@ -42,6 +50,9 @@ import com.senzaproject.createapp.domain.terminal.TerminalBackend
 import com.senzaproject.createapp.domain.terminal.TerminalSession
 import com.senzaproject.createapp.domain.terminal.TermuxEnvironment
 import java.io.File
+import java.util.Base64
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
 
 /**
  * Dependency injection manual (service locator ringan) yang dibuat sekali di [Application].
@@ -122,6 +133,12 @@ class AppContainer(application: Application) {
 
     val termuxEnvironment: TermuxEnvironment = AndroidTermuxEnvironment(application)
 
+    /** Runner Termux untuk Terminal (batas tunggu bawaan 30 menit). */
+    private val termuxRunner = TermuxCommandRunner(
+        context = application,
+        environment = termuxEnvironment,
+    )
+
     private val appHomeDirectory: String = application.filesDir.absolutePath
 
     /**
@@ -135,10 +152,7 @@ class AppContainer(application: Application) {
                 // ProcessHandle (untuk mematikan proses turunan) baru ada di Android 13.
                 killDescendants = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU,
             ),
-            TerminalBackend.TERMUX to TermuxCommandRunner(
-                context = application,
-                environment = termuxEnvironment,
-            ),
+            TerminalBackend.TERMUX to termuxRunner,
         ),
         homeDirectories = mapOf(
             TerminalBackend.LOCAL_SHELL to appHomeDirectory,
@@ -149,4 +163,51 @@ class AppContainer(application: Application) {
             backend == TerminalBackend.TERMUX || File(path).isDirectory
         },
     )
+
+    // --- Build Gradle (Tahap 6) ---
+
+    val buildSettings: BuildSettingsStore = SharedPrefsBuildSettingsStore(application)
+
+    val buildHistory: BuildHistoryStore = FileBuildHistoryStore(
+        directory = File(application.filesDir, "builds"),
+        ioDispatcher = dispatchers.io,
+    )
+
+    /** Penyalinan proyek ke folder bersama untuk Termux, dan pemeriksaan APK/AAB hasil build. */
+    val buildWorkspace: BuildWorkspace = SafBuildWorkspace(
+        context = application,
+        storage = projectStorage,
+        ioDispatcher = dispatchers.io,
+    )
+
+    /** Helper shell yang dipasang ke Termux; dibaca dari aset hanya saat pertama dibutuhkan. */
+    private val buildCommands: BuildCommandFactory by lazy {
+        val script = application.assets.open(BUILD_HELPER_ASSET).use { it.readBytes() }
+        BuildCommandFactory(Base64.getEncoder().encodeToString(script))
+    }
+
+    /**
+     * Satu sesi build untuk seluruh proses aplikasi, dengan scope sendiri agar build tidak ikut
+     * berhenti saat layar berganti. Batas tunggu Termux dinaikkan ke 2 jam karena build Gradle di
+     * ponsel (terutama yang pertama, mengunduh dependensi) bisa jauh lebih lama dari perintah biasa.
+     */
+    val buildSession: BuildSession by lazy {
+        BuildSession(
+            runner = TermuxCommandRunner(
+                context = application,
+                environment = termuxEnvironment,
+                maxWaitMillis = BUILD_MAX_WAIT_MILLIS,
+            ),
+            workspace = buildWorkspace,
+            commands = buildCommands,
+            history = buildHistory,
+            scope = CoroutineScope(SupervisorJob() + dispatchers.default),
+            termuxHome = TermuxPaths.HOME,
+        )
+    }
+
+    private companion object {
+        const val BUILD_HELPER_ASSET = "createapp-build.sh"
+        const val BUILD_MAX_WAIT_MILLIS = 2L * 60 * 60 * 1000
+    }
 }

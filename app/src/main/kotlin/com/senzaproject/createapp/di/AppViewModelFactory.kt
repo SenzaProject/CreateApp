@@ -2,6 +2,7 @@ package com.senzaproject.createapp.di
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import com.senzaproject.createapp.ui.builder.BuildViewModel
 import com.senzaproject.createapp.ui.editor.EditorViewModel
 import com.senzaproject.createapp.ui.explorer.ExplorerViewModel
 import com.senzaproject.createapp.ui.home.HomeViewModel
@@ -47,6 +48,14 @@ class AppViewModelFactory(
             termux = container.termuxEnvironment,
             observeProjects = container.observeProjects,
             projectDirectory = container::projectDirectoryPath,
+        ) as T
+
+        modelClass.isAssignableFrom(BuildViewModel::class.java) -> BuildViewModel(
+            session = container.buildSession,
+            history = container.buildHistory,
+            settings = container.buildSettings,
+            observeProjects = container.observeProjects,
+            termux = container.termuxEnvironment,
         ) as T
 
         else -> throw IllegalArgumentException("ViewModel tidak dikenal: ${modelClass.name}")

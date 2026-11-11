@@ -39,8 +39,8 @@ git config user.email                           # pastikan email akun GitHub And
 
 # Update pertama kali (repo lama belum punya skrip): ambil skrip dari zip dulu
 mkdir -p ~/tmp-update
-unzip -o -q /sdcard/Download/CreateApp-Tahap5.zip 'CreateApp/scripts/termux-update.sh' -d ~/tmp-update
-sh ~/tmp-update/CreateApp/scripts/termux-update.sh /sdcard/Download/CreateApp-Tahap5.zip "Tahap 5: Terminal dan integrasi Termux"
+unzip -o -q /sdcard/Download/CreateApp-Tahap6.zip 'CreateApp/scripts/termux-update.sh' -d ~/tmp-update
+sh ~/tmp-update/CreateApp/scripts/termux-update.sh /sdcard/Download/CreateApp-Tahap6.zip "Tahap 6: Gradle Build lewat Termux dan GitHub Actions"
 ```
 
 Untuk tahap berikutnya skrip sudah ada di repo, cukup:
@@ -59,7 +59,7 @@ Lupa lokasi repo? `find ~ -maxdepth 3 -name .git -path "*CreateApp*"`.
 cd ~
 rm -rf CreateApp-repo CreateApp-baru
 git clone https://github.com/SenzaProject/CreateApp.git CreateApp-repo
-mkdir CreateApp-baru && unzip -q /sdcard/Download/CreateApp-Tahap5.zip -d CreateApp-baru
+mkdir CreateApp-baru && unzip -q /sdcard/Download/CreateApp-Tahap6.zip -d CreateApp-baru
 
 cd CreateApp-repo
 git config user.name  "SenzaProject"
@@ -70,7 +70,7 @@ cp -a ../CreateApp-baru/CreateApp/. .                            # salin isi tah
 
 git add -A
 git status                                 # periksa daftar berkas baru, diubah, dihapus
-git commit -m "Tahap 5: Terminal dan integrasi Termux"
+git commit -m "Tahap 6: Gradle Build lewat Termux dan GitHub Actions"
 git push origin HEAD
 ```
 
@@ -91,6 +91,10 @@ Alternatif yang lebih aman dari mengetik token berulang: `pkg install gh` lalu `
 
 ## Setelah push
 
-Buka tab **Actions** di repository dan tunggu workflow **Android CI**. Workflow menjalankan
-`./gradlew test` lalu `:app:assembleDebug`. Bila berhasil, unduh artifact **CreateApp-debug-apk**.
+Buka tab **Actions** di repository dan tunggu workflow **Android CI**. Workflow menguji helper Termux, menjalankan
+`./gradlew test`, lalu `:app:assembleDebug`. Bila berhasil, unduh artifact **CreateApp-debug-apk**.
 Bila gagal, salin log langkah yang merah (atau unduh artifact **laporan-test**) dan kirimkan untuk diperbaiki.
+
+APK/AAB release (belum ditandatangani sampai Tahap 8): di tab Actions pilih **Android CI** → **Run workflow** → kolom
+`task` pilih `assembleRelease` atau `bundleRelease`; hasilnya muncul sebagai artifact `CreateApp-release-apk-unsigned`
+atau `CreateApp-release-aab-unsigned`.

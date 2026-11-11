@@ -8,8 +8,9 @@
   Android IDE &amp; APK Builder — dikembangkan oleh <b>SenzaProject</b>
 </p>
 
-> **Status: Tahap 5 (Terminal dan integrasi Termux) — kode dan unit test ditulis, menunggu CI dan uji di perangkat.**
-> Catatan: Code Editor lengkap (Tahap 4) **belum ada** di kode ini; lihat [`docs/TAHAP-5.md`](docs/TAHAP-5.md).
+> **Status: Tahap 6 (Gradle Build) — kode, unit test, dan skrip Termux ditulis; logika inti dan skrip sudah diuji dengan proses nyata
+> di JVM/shell, tetapi belum dikompilasi sebagai Kotlin/Android dan belum diuji di perangkat. Menunggu CI dan uji perangkat.**
+> Catatan: Code Editor lengkap (Tahap 4) **belum ada** di kode ini; lihat [`docs/TAHAP-5.md`](docs/TAHAP-5.md) dan [`docs/TAHAP-6.md`](docs/TAHAP-6.md).
 > Proyek ini sedang dibangun bertahap. Hanya fitur yang tercantum sebagai **Tersedia** di bawah
 > yang sudah ada; sisanya direncanakan dan tidak boleh dianggap berfungsi.
 
@@ -31,12 +32,12 @@ Pendekatan build bersifat **hibrid**: lokal melalui Termux dan cloud melalui Git
 | Buat/ganti nama/hapus proyek, buka folder (SAF), File Explorer, buat/ganti nama/hapus file, simpan file | Ditulis, **belum dikompilasi/diuji** | 3 |
 | Code Editor lengkap (highlighting, undo, multi-tab) | Belum | 4 |
 | Terminal (shell lokal + Termux via RUN_COMMAND), riwayat, `cd`, hentikan perintah | Ditulis, **belum dikompilasi/diuji di perangkat** | 5 |
-| Build Gradle (debug/release/AAB) | Belum | 6 |
+| Build Gradle lokal via Termux (debug/release/AAB), batal, log, error, riwayat; build cloud via workflow manual | Ditulis, **belum dikompilasi/diuji di perangkat** (helper Termux sudah diuji dengan proses nyata) | 6 |
 | APK Manager | Belum | 7 |
 | Signing, GitHub, Cloud Build | Belum | 8–10 |
 | Error Analyzer, Preview, Settings lengkap | Belum | 11–13 |
 
-Detail lengkap: [`docs/ROADMAP.md`](docs/ROADMAP.md), [`docs/CHECKLIST.md`](docs/CHECKLIST.md), laporan tahap: [`docs/TAHAP-1.md`](docs/TAHAP-1.md), [`docs/TAHAP-2.md`](docs/TAHAP-2.md), [`docs/TAHAP-3.md`](docs/TAHAP-3.md), [`docs/TAHAP-5.md`](docs/TAHAP-5.md).
+Detail lengkap: [`docs/ROADMAP.md`](docs/ROADMAP.md), [`docs/CHECKLIST.md`](docs/CHECKLIST.md), laporan tahap: [`docs/TAHAP-1.md`](docs/TAHAP-1.md), [`docs/TAHAP-2.md`](docs/TAHAP-2.md), [`docs/TAHAP-3.md`](docs/TAHAP-3.md), [`docs/TAHAP-5.md`](docs/TAHAP-5.md), [`docs/TAHAP-6.md`](docs/TAHAP-6.md).
 
 ## Screenshots
 
@@ -58,7 +59,8 @@ Belum ada screenshot aplikasi. Mockup desain UI tersedia di [`docs/design/`](doc
 
 ### Opsi A — GitHub Actions (disarankan, tanpa SDK di HP)
 
-Push ke GitHub; workflow `.github/workflows/android.yml` menjalankan unit test dan membuat APK debug.
+Push ke GitHub; workflow `.github/workflows/android.yml` menguji helper Termux, menjalankan unit test, dan membuat APK debug.
+Untuk APK/AAB release (belum ditandatangani): tab Actions → **Android CI** → **Run workflow** → pilih `assembleRelease` atau `bundleRelease`.
 Panduan push dari Termux: [`docs/TERMUX-PUSH.md`](docs/TERMUX-PUSH.md).
 
 ### Opsi B — Lokal (Termux atau PC)
@@ -72,7 +74,8 @@ sh scripts/setup-wrapper.sh    # sekali saja: buat gradlew + gradle-wrapper.jar
 ```
 
 Build lokal di Android memiliki keterbatasan (arsitektur binary SDK, memori). Lihat
-[Keterbatasan](#keterbatasan-yang-diketahui).
+[Keterbatasan](#keterbatasan-yang-diketahui). Dari dalam aplikasi, tab **Build** menjalankan build lewat Termux; panduan dan daftar
+uji perangkat di [`docs/TAHAP-6.md`](docs/TAHAP-6.md).
 
 ## Arsitektur
 
@@ -87,14 +90,15 @@ core/common     Logging, dispatcher, crash reporter
 core/project    Penyimpanan proyek berbasis folder, operasi file, impor/ekspor SAF (Tahap 3)
 core/editor     (metrik teks editor awal; fitur penuh Tahap 4)
 core/terminal   Shell lokal Android dan integrasi Termux (RUN_COMMAND) (Tahap 5)
-core/builder    (direncanakan, Tahap 6)
+core/builder    Riwayat build dan pengaturan folder bersama (Tahap 6); logika build ada di domain/builder
 core/git        (direncanakan, Tahap 9)
 ```
 
 ## GitHub Actions
 
 Workflow `android.yml` berjalan pada `push`, `pull_request`, dan manual. Langkah: JDK 17 → Android SDK →
-Gradle → siapkan wrapper → `./gradlew test` → `./gradlew :app:assembleDebug` → upload APK.
+Gradle → siapkan wrapper → uji helper Termux → `./gradlew test` → `./gradlew :app:assembleDebug` → upload APK.
+Secara manual bisa menambah `assembleRelease` atau `bundleRelease`.
 Keystore dan rahasia **tidak** disimpan di repository; signing release lewat GitHub Secrets dikerjakan di Tahap 8.
 
 ## Keterbatasan yang diketahui
@@ -104,9 +108,9 @@ Keystore dan rahasia **tidak** disimpan di repository; signing release lewat Git
 - Tahap 3 belum pernah dikompilasi atau dijalankan; lihat [`docs/TAHAP-3.md`](docs/TAHAP-3.md) untuk status verifikasi yang jujur.
 - Belum ada simpan otomatis: perubahan file yang belum disimpan hilang bila aplikasi ditutup (Tahap 4). Buffer sementara dari Beranda tidak disimpan ke file.
 - Template proyek Android hanya kerangka Gradle; kemampuannya dibangun baru diuji pada Tahap 6.
-- Layar Build dan GitHub masih berupa penanda "belum tersedia".
+- Layar GitHub masih berupa penanda "belum tersedia". Layar Build (Tahap 6) belum pernah dikompilasi atau diuji di perangkat; log build lokal tampil setelah build selesai (batasan Termux). Lihat [`docs/TAHAP-6.md`](docs/TAHAP-6.md).
 - Terminal Tahap 5 belum pernah dikompilasi atau diuji di perangkat; integrasi Termux khususnya hanya bisa dibuktikan di HP. Lihat [`docs/TAHAP-5.md`](docs/TAHAP-5.md).
-- Build lokal di HP bergantung pada Termux, JDK, dan SDK yang kompatibel; belum diuji.
+- Build lokal di HP bergantung pada Termux, JDK, SDK, dan `aapt2` yang kompatibel dengan arsitektur; belum diuji di perangkat.
 
 ## Roadmap
 

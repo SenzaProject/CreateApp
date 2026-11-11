@@ -62,6 +62,7 @@ ViewModel agar pengetikan tidak tertunda atau melompat.
 |---|---|
 | DI manual (`AppContainer`) | Tidak butuh KSP/kapt sehingga build Tahap 1 sederhana dan stabil. Evaluasi Hilt/Koin bila graf membesar. |
 | Folder `core/builder` (bukan `core/build`) | `build/` adalah folder output Gradle dan diabaikan `.gitignore`; nama itu akan menyembunyikan source. |
+| Paket `domain.builder` dan `ui.builder` (bukan `...build`) | Alasan sama: `.gitignore` mengabaikan setiap folder bernama `build/`. Folder bernama `build` di sumber hilang dari GitHub tanpa peringatan. |
 | Bottom navigation: Beranda, Proyek, Build, GitHub, Pengaturan | Mengikuti desain UI awal. Editor dan Terminal dibuka sebagai layar sekunder. |
 | `material-icons-extended` | Ikon Folder/Code/Cloud; dikecilkan oleh R8 saat release diaktifkan (Tahap 8/14). |
 | minSdk 26 | Adaptive icon tanpa PNG lama; cukup luas untuk perangkat modern. |

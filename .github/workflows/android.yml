@@ -4,6 +4,15 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+    inputs:
+      task:
+        description: "Build tambahan setelah debug (APK/AAB release BELUM ditandatangani sampai Tahap 8)"
+        type: choice
+        default: none
+        options:
+          - none
+          - assembleRelease
+          - bundleRelease
 
 concurrency:
   group: android-ci-${{ github.ref }}
@@ -48,6 +57,12 @@ jobs:
           chmod +x gradlew
           ./gradlew --version
 
+      # Menguji skrip helper Termux dengan proses nyata (tanpa perlu Termux/Android).
+      - name: Uji helper build Termux (dash dan bash)
+        run: |
+          SH_UNDER_TEST=dash sh scripts/test-build-helper.sh
+          SH_UNDER_TEST=bash bash scripts/test-build-helper.sh
+
       - name: Unit test
         run: ./gradlew test --stacktrace
 
@@ -59,6 +74,31 @@ jobs:
         with:
           name: CreateApp-debug-apk
           path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+
+      # Build tambahan hanya jika dipilih saat "Run workflow"; push biasa tidak menjalankannya.
+      - name: Build APK release (belum ditandatangani)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.task == 'assembleRelease' }}
+        run: ./gradlew :app:assembleRelease --stacktrace
+
+      - name: Upload APK release (belum ditandatangani)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.task == 'assembleRelease' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: CreateApp-release-apk-unsigned
+          path: app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+
+      - name: Build AAB release (belum ditandatangani)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.task == 'bundleRelease' }}
+        run: ./gradlew :app:bundleRelease --stacktrace
+
+      - name: Upload AAB release (belum ditandatangani)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.task == 'bundleRelease' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: CreateApp-release-aab-unsigned
+          path: app/build/outputs/bundle/release/*.aab
           if-no-files-found: error
 
       - name: Upload laporan test (bila gagal)

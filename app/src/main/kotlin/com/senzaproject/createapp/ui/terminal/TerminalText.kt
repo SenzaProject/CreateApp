@@ -42,7 +42,7 @@ fun StatusMessage.isError(): Boolean = when (this) {
     StatusMessage.Help -> false
 }
 
-private fun TerminalFailure.toText(context: Context, detail: String?): String {
+internal fun TerminalFailure.toText(context: Context, detail: String?): String {
     val base = context.getString(
         when (this) {
             TerminalFailure.INVALID_DIRECTORY -> R.string.terminal_failure_invalid_directory

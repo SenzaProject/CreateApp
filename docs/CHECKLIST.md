@@ -44,6 +44,9 @@ Gunakan checklist ini untuk melacak progres. Tandai hanya setelah bukti implemen
 - [ ] Pembatalan proses
 
 ## Tahap 6 — Gradle Build
+> Kode, 93 unit test Kotlin, dan skrip Termux ditulis (lihat `docs/TAHAP-6.md`). Skrip helper dan logika inti sudah diuji dengan proses
+> nyata (79 pemeriksaan shell, 232 pemeriksaan port JVM), tetapi Kotlin/Compose **belum dikompilasi** dan **belum dijalankan di
+> perangkat**. Jangan dicentang sebelum CI hijau dan daftar uji perangkat di `docs/TAHAP-6.md` lulus.
 - [ ] Gradle Wrapper
 - [ ] Debug build
 - [ ] Release build
