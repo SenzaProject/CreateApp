@@ -98,7 +98,7 @@ fun HomeScreen(
         ActionTileData(
             icon = Icons.Filled.Build,
             title = stringResource(R.string.tile_build_apk),
-            subtitle = stringResource(R.string.tile_stage, 6),
+            subtitle = stringResource(R.string.tile_build_apk_sub),
             color = TilePurple,
             onClick = navigation.onBuild,
         ),
