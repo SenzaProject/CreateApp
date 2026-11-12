@@ -34,6 +34,20 @@ object SharedStoragePath {
         return "$PRIMARY_ROOT/$relative"
     }
 
+    /**
+     * Kebalikan [fromTreeUri]: ID dokumen penyedia penyimpanan eksternal ("primary:Download/X") untuk
+     * [absolutePath] di penyimpanan internal utama, atau null bila path di luar penyimpanan itu atau
+     * mengandung `..`. Dipakai untuk membuka folder di aplikasi File.
+     */
+    fun documentIdFor(absolutePath: String): String? {
+        if (absolutePath != PRIMARY_ROOT && !absolutePath.startsWith("$PRIMARY_ROOT/")) return null
+        val relative = absolutePath.substring(PRIMARY_ROOT.length).trim('/')
+        if (relative.isEmpty()) return "$PRIMARY_VOLUME:"
+        if (relative.contains('\u0000')) return null
+        if (relative.split('/').any { it.isEmpty() || it == "." || it == ".." }) return null
+        return "$PRIMARY_VOLUME:$relative"
+    }
+
     /** Dekode persen untuk UTF-8; null bila tidak valid. Tanda `+` TIDAK diubah menjadi spasi. */
     private fun percentDecode(text: String): String? {
         val bytes = ByteArrayOutputStream()
@@ -57,14 +71,23 @@ object SharedStoragePath {
     }
 }
 
-/** Tata letak folder bersama: `src/<id proyek>` untuk sumber, `out/<id proyek>` untuk hasil build. */
+/**
+ * Tata letak folder bersama: `src/<id proyek>` untuk sumber, `out/<id proyek>` untuk hasil build, dan
+ * `logs/<id proyek>.log` untuk log Gradle yang ditulis helper selama build berjalan.
+ */
 object WorkspaceLayout {
     const val SOURCE_DIR = "src"
     const val OUTPUT_DIR = "out"
+    const val LOG_DIR = "logs"
+    const val LOG_SUFFIX = ".log"
 
     fun sourcePath(rootPath: String, projectId: String): String = "$rootPath/$SOURCE_DIR/$projectId"
 
     fun outputRootPath(rootPath: String): String = "$rootPath/$OUTPUT_DIR"
 
     fun outputPath(rootPath: String, projectId: String): String = "$rootPath/$OUTPUT_DIR/$projectId"
+
+    fun liveLogName(projectId: String): String = projectId + LOG_SUFFIX
+
+    fun liveLogPath(rootPath: String, projectId: String): String = "$rootPath/$LOG_DIR/${liveLogName(projectId)}"
 }

@@ -54,6 +54,8 @@ Gunakan checklist ini untuk melacak progres. Tandai hanya setelah bukti implemen
 - [ ] Log/progress/cancel
 
 ## Tahap 7 — APK Manager
+> Kode dan unit test ditulis (lihat `docs/TAHAP-7.md`); helper Termux v2 diuji dengan proses nyata, tetapi Kotlin **belum dikompilasi** dan **belum
+> dijalankan di perangkat**. Jangan dicentang sebelum CI hijau dan daftar uji perangkat di `docs/TAHAP-7.md` lulus.
 - [ ] Daftar artefak
 - [ ] Detail APK/AAB
 - [ ] Install/share/export

@@ -2,6 +2,7 @@ package com.senzaproject.createapp.di
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import com.senzaproject.createapp.ui.apk.ApkManagerViewModel
 import com.senzaproject.createapp.ui.builder.BuildViewModel
 import com.senzaproject.createapp.ui.editor.EditorViewModel
 import com.senzaproject.createapp.ui.explorer.ExplorerViewModel
@@ -56,6 +57,13 @@ class AppViewModelFactory(
             settings = container.buildSettings,
             observeProjects = container.observeProjects,
             termux = container.termuxEnvironment,
+        ) as T
+
+        modelClass.isAssignableFrom(ApkManagerViewModel::class.java) -> ApkManagerViewModel(
+            store = container.artifactStore,
+            history = container.buildHistory,
+            settings = container.buildSettings,
+            observeProjects = container.observeProjects,
         ) as T
 
         else -> throw IllegalArgumentException("ViewModel tidak dikenal: ${modelClass.name}")

@@ -6,6 +6,7 @@ import com.senzaproject.createapp.BuildConfig
 import com.senzaproject.createapp.R
 import com.senzaproject.createapp.core.builder.BuilderModule
 import com.senzaproject.createapp.core.builder.FileBuildHistoryStore
+import com.senzaproject.createapp.core.builder.SafArtifactStore
 import com.senzaproject.createapp.core.builder.SharedPrefsBuildSettingsStore
 import com.senzaproject.createapp.core.common.AndroidLogger
 import com.senzaproject.createapp.core.common.AppDispatchers
@@ -29,6 +30,7 @@ import com.senzaproject.createapp.core.terminal.TermuxPaths
 import com.senzaproject.createapp.data.DataModule
 import com.senzaproject.createapp.data.diagnostics.AndroidDeviceInfoSource
 import com.senzaproject.createapp.data.diagnostics.DiagnosticsRepositoryImpl
+import com.senzaproject.createapp.domain.apk.ArtifactStore
 import com.senzaproject.createapp.domain.builder.BuildCommandFactory
 import com.senzaproject.createapp.domain.builder.BuildHistoryStore
 import com.senzaproject.createapp.domain.builder.BuildSession
@@ -177,6 +179,16 @@ class AppContainer(application: Application) {
     val buildWorkspace: BuildWorkspace = SafBuildWorkspace(
         context = application,
         storage = projectStorage,
+        ioDispatcher = dispatchers.io,
+    )
+
+    // --- APK Manager (Tahap 7) ---
+
+    /** APK/AAB di folder bersama; salinan untuk pasang/bagikan disimpan di `cacheDir/artifacts`. */
+    val artifactStore: ArtifactStore = SafArtifactStore(
+        context = application,
+        cacheRoot = File(application.cacheDir, "artifacts"),
+        authority = application.packageName + ".fileprovider",
         ioDispatcher = dispatchers.io,
     )
 

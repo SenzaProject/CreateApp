@@ -75,4 +75,31 @@ class SharedStoragePathTest {
         assertEquals("/r/out", WorkspaceLayout.outputRootPath("/r"))
         assertEquals("/r/out/p1", WorkspaceLayout.outputPath("/r", "p1"))
     }
+
+    @Test
+    fun `path log langsung`() {
+        assertEquals("/r/logs/p1.log", WorkspaceLayout.liveLogPath("/r", "p1"))
+        assertEquals("p1.log", WorkspaceLayout.liveLogName("p1"))
+    }
+
+    @Test
+    fun `id dokumen dari path penyimpanan internal`() {
+        assertEquals("primary:", SharedStoragePath.documentIdFor("/storage/emulated/0"))
+        assertEquals("primary:Download/B/out/p1", SharedStoragePath.documentIdFor("/storage/emulated/0/Download/B/out/p1"))
+        assertEquals("primary:A B/C+", SharedStoragePath.documentIdFor("/storage/emulated/0/A B/C+"))
+    }
+
+    @Test
+    fun `id dokumen ditolak untuk path di luar penyimpanan internal atau berbahaya`() {
+        assertNull(SharedStoragePath.documentIdFor("/sdcard/Download"))
+        assertNull(SharedStoragePath.documentIdFor("/storage/emulated/01/x"))
+        assertNull(SharedStoragePath.documentIdFor("/storage/emulated/0/../etc"))
+        assertNull(SharedStoragePath.documentIdFor("/storage/emulated/0/a//b"))
+    }
+
+    @Test
+    fun `id dokumen adalah kebalikan dari path pohon`() {
+        val path = SharedStoragePath.fromTreeUri(base + "primary%3ADownload%2FCreateAppBuild")
+        assertEquals("primary:Download/CreateAppBuild", SharedStoragePath.documentIdFor(path!!))
+    }
 }

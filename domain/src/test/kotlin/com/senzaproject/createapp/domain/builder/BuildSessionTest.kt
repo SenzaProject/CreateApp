@@ -33,8 +33,11 @@ class BuildSessionTest {
     private class FakeWorkspace(
         var syncResult: AppResult<SyncedWorkspace> = AppResult.Success(SyncedWorkspace(3, 100L)),
         var validation: ArtifactValidation = ArtifactValidation.VALID,
+        var live: LiveLogSource = NoLiveLog,
     ) : BuildWorkspace {
         val syncCalls = AtomicInteger(0)
+
+        override suspend fun openLiveLog(treeUri: String, projectId: String): LiveLogSource = live
 
         override suspend fun sync(projectId: String, treeUri: String): AppResult<SyncedWorkspace> {
             syncCalls.incrementAndGet()
@@ -96,6 +99,7 @@ class BuildSessionTest {
         workspace: BuildWorkspace = FakeWorkspace(),
         history: BuildHistoryStore = FakeHistory(),
         graceMillis: Long = 60_000L,
+        livePollMillis: Long = 20L,
     ): BuildSession {
         val ids = AtomicInteger(0)
         return BuildSession(
@@ -106,6 +110,7 @@ class BuildSessionTest {
             scope = scope,
             termuxHome = "/home",
             cancelGraceMillis = graceMillis,
+            livePollMillis = livePollMillis,
             newId = { "id-" + ids.incrementAndGet() },
         )
     }
@@ -398,6 +403,119 @@ class BuildSessionTest {
                 FakeRunner { flow { emit(CommandEvent.Failed(TerminalFailure.TERMUX_ERROR, null)) } },
             ).cleanTermuxWork()
             assertTrue(failed is CleanResult.Failed)
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    // --- Log langsung (Tahap 7) ---
+
+    private class ScriptedLive(private val chunks: List<String>) : LiveLogSource {
+        private val index = AtomicInteger(0)
+
+        override suspend fun readNew(flush: Boolean): String? {
+            val i = index.getAndIncrement()
+            return if (i < chunks.size) chunks[i] else ""
+        }
+    }
+
+    private object BrokenLive : LiveLogSource {
+        override suspend fun readNew(flush: Boolean): String? = null
+    }
+
+    private val markerOutput = "@@CA@helper=2\n@@CA@live=1\n@@CA@phase=build\n" +
+        "> Task :app:salinan-stdout\nBUILD SUCCESSFUL in 3s\n@@CA@exit=0\n@@CA@phase=collect\n" +
+        "@@CA@artifact=APK|8|app-debug.apk\n@@CA@done=1\n"
+
+    @Test
+    fun `build memakai log langsung dan tidak menggandakan ekor log dari stdout`() = runBlocking {
+        val scope = newScope()
+        try {
+            val runner = FakeRunner {
+                flow {
+                    kotlinx.coroutines.delay(300L)
+                    emit(CommandEvent.Output(StreamKind.STDOUT, markerOutput))
+                    emit(CommandEvent.Finished(0))
+                }
+            }
+            val workspace = FakeWorkspace(
+                live = ScriptedLive(listOf("> Task :app:a\n", "> Task :app:b\nBUILD SUCCESSFUL in 3s\n")),
+            )
+            val session = newSession(scope, runner, workspace)
+
+            assertTrue(session.start(request))
+            val done = session.awaitFinished()
+
+            assertEquals(BuildStatus.SUCCESS, done.status)
+            assertTrue(done.liveLog)
+            assertEquals(listOf("> Task :app:a", "> Task :app:b", "BUILD SUCCESSFUL in 3s"), done.logLines)
+            assertEquals(2, done.tasksSeen)
+            assertTrue(runner.commands.single().contains("--live '/storage/emulated/0/Download/B/logs/p1.log'"))
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    @Test
+    fun `kemajuan terlihat selagi Termux masih menjalankan build`() = runBlocking {
+        val scope = newScope()
+        try {
+            val gate = CompletableDeferred<Unit>()
+            val runner = FakeRunner {
+                flow {
+                    gate.await()
+                    emit(CommandEvent.Output(StreamKind.STDOUT, markerOutput))
+                    emit(CommandEvent.Finished(0))
+                }
+            }
+            val workspace = FakeWorkspace(live = ScriptedLive(listOf("> Task :app:compileDebugKotlin\n")))
+            val session = newSession(scope, runner, workspace)
+
+            assertTrue(session.start(request))
+            val running = withTimeout(10_000L) {
+                session.state.first { it.liveLog && it.currentTask != null }
+            }
+            assertTrue(running.isActive)
+            assertEquals(":app:compileDebugKotlin", running.currentTask)
+            assertEquals(BuildPhase.BUILD, running.phase)
+
+            gate.complete(Unit)
+            assertEquals(BuildStatus.SUCCESS, session.awaitFinished().status)
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    @Test
+    fun `log langsung tidak terbaca maka ekor log stdout dipakai sebagai cadangan`() = runBlocking {
+        val scope = newScope()
+        try {
+            val runner = FakeRunner { outputThenFinish(markerOutput, 0) }
+            val session = newSession(scope, runner, FakeWorkspace(live = BrokenLive))
+
+            assertTrue(session.start(request))
+            val done = session.awaitFinished()
+
+            assertEquals(BuildStatus.SUCCESS, done.status)
+            assertFalse(done.liveLog)
+            assertEquals(listOf("> Task :app:salinan-stdout", "BUILD SUCCESSFUL in 3s"), done.logLines)
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    @Test
+    fun `log langsung yang rusak tidak mengubah hasil build`() = runBlocking {
+        val scope = newScope()
+        try {
+            val throwing = object : LiveLogSource {
+                override suspend fun readNew(flush: Boolean): String? = throw IllegalStateException("boom")
+            }
+            val runner = FakeRunner { outputThenFinish(markerOutput, 0) }
+            val session = newSession(scope, runner, FakeWorkspace(live = throwing))
+
+            assertTrue(session.start(request))
+            assertEquals(BuildStatus.SUCCESS, session.awaitFinished().status)
         } finally {
             scope.cancel()
         }

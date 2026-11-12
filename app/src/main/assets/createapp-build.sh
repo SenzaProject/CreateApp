@@ -1,19 +1,28 @@
 #!/bin/sh
-# Create App - pembantu build untuk Termux (versi 1).
+# Create App - pembantu build untuk Termux (versi 2).
 #
 # Dipasang dan dijalankan otomatis oleh aplikasi Create App lewat intent RUN_COMMAND.
 # Ditulis untuk POSIX sh (dash/bash) dan hanya memakai perintah dasar Termux.
 #
 # Pemakaian:
 #   sh build.sh check  --source DIR
-#   sh build.sh build  --source DIR --name NAMA --task TASK --out DIR
+#   sh build.sh build  --source DIR --name NAMA --task TASK --out DIR [--live FILE.log]
 #   sh build.sh cancel
 #   sh build.sh clean
 #
 # Keluaran yang dibaca aplikasi: baris berawalan "@@CA@" (lihat HelperProtocol.kt).
+#
+# Log langsung: bila --live diberikan dan bisa ditulis, keluaran Gradle ditulis LANGSUNG ke file itu
+# (di folder bersama) sehingga aplikasi dapat membacanya selama build berjalan. Termux sendiri hanya
+# mengirim keluaran perintah setelah selesai. Bila file tidak bisa ditulis, log disimpan di folder
+# privat helper dan dicetak ke stdout di akhir (perilaku versi 1).
+#
+# Build inkremental: salinan kerja di ~/.createapp/work/NAMA dipertahankan antarbuild. File sumber
+# diganti seluruhnya, tetapi build/ di akar tiap modul dan .gradle di akar proyek dipertahankan
+# (build/outputs selalu dibuang agar APK/AAB lama tidak ikut terkumpul).
 # Skrip ini tidak pernah mencetak variabel lingkungan, token, atau password.
 
-CA_HELPER_VERSION=1
+CA_HELPER_VERSION=2
 CA_HOME="${CREATEAPP_HOME:-${HOME:-/tmp}/.createapp}"
 CA_PIDFILE="$CA_HOME/build.pid"
 CA_LOGDIR="$CA_HOME/logs"
@@ -67,6 +76,7 @@ SOURCE=""
 NAME=""
 TASK=""
 OUT=""
+LIVE=""
 
 parse_args() {
     while [ $# -gt 0 ]; do
@@ -79,6 +89,7 @@ parse_args() {
             --name) NAME=$2 ;;
             --task) TASK=$2 ;;
             --out) OUT=$2 ;;
+            --live) LIVE=$2 ;;
             *)
                 say "error=BAD_ARGS"
                 exit 2
@@ -253,6 +264,74 @@ make_wrapper() {
     return 0
 }
 
+# Mencetak ekor log ke stdout (cadangan bila aplikasi tidak bisa membaca log langsung).
+# Salinan lengkap disimpan di folder log privat helper.
+emit_log() {
+    if [ "$LOG" != "$PLOG" ]; then
+        cp "$LOG" "$PLOG" 2>/dev/null
+    fi
+    [ -s "$LOG" ] && tail -n 600 "$LOG"
+    return 0
+}
+
+# Menyegarkan salinan kerja $2 dari sumber $1 (lihat catatan "Build inkremental" di atas).
+# Modul = folder yang berisi build.gradle atau build.gradle.kts. Mengembalikan 1 bila gagal.
+refresh_work() {
+    rw_src=$1
+    rw_work=$2
+    rw_keep="$CA_HOME/keep.$$"
+    rw_list="$CA_HOME/keep-list.$$"
+    rw_mods="$CA_HOME/keep-mods.$$"
+    rm -rf "$rw_keep" "$rw_list" "$rw_mods"
+    mkdir -p "$rw_keep" || return 1
+    : >"$rw_list" || return 1
+
+    if [ -d "$rw_work" ]; then
+        # Jangan menelusuri build/ dan .gradle saat mencari modul. cd + "find ." agar nama folder
+        # kerja itu sendiri (mis. "build") tidak ikut dicocokkan.
+        (cd "$rw_work" && find . \( -name build -o -name .gradle \) -prune -o -type f \
+            \( -name build.gradle -o -name build.gradle.kts \) -print) >"$rw_mods" 2>/dev/null
+        while IFS= read -r rw_file; do
+            rw_mod=${rw_file%/*}
+            rw_rel=${rw_mod#.}
+            if [ -d "$rw_work$rw_rel/build" ]; then
+                if mkdir -p "$rw_keep$rw_rel" && mv "$rw_work$rw_rel/build" "$rw_keep$rw_rel/build"; then
+                    printf '%s\n' "$rw_rel" >>"$rw_list"
+                fi
+            fi
+        done <"$rw_mods"
+        if [ -d "$rw_work/.gradle" ]; then
+            if mv "$rw_work/.gradle" "$rw_keep/.gradle"; then
+                printf '@gradle\n' >>"$rw_list"
+            fi
+        fi
+    fi
+
+    rm -rf "$rw_work"
+    mkdir -p "$rw_work" || return 1
+    if ! cp -R "$rw_src"/. "$rw_work"/ 2>>"$LOG"; then
+        rm -rf "$rw_keep" "$rw_list" "$rw_mods"
+        return 1
+    fi
+
+    while IFS= read -r rw_rel; do
+        case "$rw_rel" in
+            @gradle)
+                [ -e "$rw_work/.gradle" ] || mv "$rw_keep/.gradle" "$rw_work/.gradle"
+                ;;
+            *)
+                # Pulihkan hanya bila modulnya masih ada dan sumber baru tidak membawa folder build sendiri.
+                if [ -d "$rw_work$rw_rel" ] && [ ! -e "$rw_work$rw_rel/build" ]; then
+                    mv "$rw_keep$rw_rel/build" "$rw_work$rw_rel/build" &&
+                        rm -rf "$rw_work$rw_rel/build/outputs"
+                fi
+                ;;
+        esac
+    done <"$rw_list"
+    rm -rf "$rw_keep" "$rw_list" "$rw_mods"
+    return 0
+}
+
 cmd_build() {
     say "helper=$CA_HELPER_VERSION"
     say "phase=prepare"
@@ -267,6 +346,18 @@ cmd_build() {
     require_absolute "$SOURCE" || fail BAD_ARGS 2
     require_absolute "$OUT" || fail BAD_ARGS 2
     [ "$OUT" != "/" ] || fail BAD_ARGS 2
+    if [ -n "$LIVE" ]; then
+        # File ini DIKOSONGKAN di awal build, jadi hanya terima path absolut berakhiran .log
+        # yang belum ada atau berupa file biasa.
+        require_absolute "$LIVE" || fail BAD_ARGS 2
+        case "$LIVE" in
+            *.log) ;;
+            *) fail BAD_ARGS 2 ;;
+        esac
+        if [ -e "$LIVE" ] && [ ! -f "$LIVE" ]; then
+            fail BAD_ARGS 2
+        fi
+    fi
 
     pid=""
     [ -f "$CA_PIDFILE" ] && pid=$(cat "$CA_PIDFILE" 2>/dev/null)
@@ -286,16 +377,23 @@ cmd_build() {
     trap on_signal TERM INT HUP
 
     stamp=$(date +%Y%m%d-%H%M%S 2>/dev/null || echo run)
-    LOG="$CA_LOGDIR/$NAME-$stamp.log"
-    : >"$LOG"
+    PLOG="$CA_LOGDIR/$NAME-$stamp.log"
+    : >"$PLOG"
+    LOG=$PLOG
     # Simpan hanya 10 log terakhir per proyek.
     old=$(ls -1t "$CA_LOGDIR"/"$NAME"-*.log 2>/dev/null | sed -n '11,$p')
     [ -n "$old" ] && printf '%s\n' "$old" | while IFS= read -r f; do rm -f "$f"; done
 
+    # Log langsung (opsional). Subshell agar kegagalan pengalihan tidak mengakhiri skrip ini.
+    if [ -n "$LIVE" ] && (mkdir -p "${LIVE%/*}" && : >"$LIVE") 2>/dev/null; then
+        LOG=$LIVE
+        say "live=1"
+    else
+        say "live=0"
+    fi
+
     WORK="$CA_WORKROOT/$NAME"
-    rm -rf "$WORK"
-    mkdir -p "$WORK" || fail COPY_FAILED 6
-    if ! cp -R "$SOURCE"/. "$WORK"/ 2>>"$LOG"; then
+    if ! refresh_work "$SOURCE" "$WORK"; then
         fail COPY_FAILED 6
     fi
 
@@ -310,7 +408,7 @@ cmd_build() {
             fail NO_WRAPPER 4
         fi
         if ! make_wrapper "$WORK"; then
-            [ -s "$LOG" ] && cat "$LOG"
+            emit_log
             fail WRAPPER_FAILED 4
         fi
     fi
@@ -331,13 +429,13 @@ cmd_build() {
         if is_alive "$GPID"; then
             kill_tree "$GPID" KILL
         fi
-        cat "$LOG"
+        emit_log
         say "cancelled=1"
         say "done=1"
         exit 143
     fi
 
-    cat "$LOG"
+    emit_log
     say "exit=$CODE"
 
     if [ "$CODE" -ne 0 ]; then

@@ -14,6 +14,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.senzaproject.createapp.R
+import com.senzaproject.createapp.ui.apk.ApkManagerScreen
+import com.senzaproject.createapp.ui.apk.ApkManagerViewModel
 import com.senzaproject.createapp.ui.builder.BuildScreen
 import com.senzaproject.createapp.ui.builder.BuildViewModel
 import com.senzaproject.createapp.ui.components.PlaceholderScreen
@@ -112,6 +114,15 @@ fun CreateAppNavHost(
             BuildScreen(
                 viewModel = viewModel,
                 onOpenTerminal = { navController.navigateSecondary(Routes.TERMINAL) },
+                onOpenApkManager = { navController.navigateSecondary(Routes.APK_MANAGER) },
+            )
+        }
+
+        composable(Routes.APK_MANAGER) {
+            val viewModel: ApkManagerViewModel = viewModel(factory = viewModelFactory)
+            ApkManagerScreen(
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() },
             )
         }
 

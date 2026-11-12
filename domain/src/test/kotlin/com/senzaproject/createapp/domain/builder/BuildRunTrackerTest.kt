@@ -178,4 +178,84 @@ class BuildRunTrackerTest {
         t.finishOutput()
         assertEquals(1, t.errorCount)
     }
+
+    // --- Log langsung (Tahap 7) ---
+
+    private val markersOnly = "@@CA@helper=2\n@@CA@live=1\n@@CA@phase=build\n@@CA@exit=0\n" +
+        "@@CA@phase=collect\n@@CA@artifact=APK|8|app-debug.apk\n@@CA@done=1\n"
+
+    @Test
+    fun `log langsung dipakai dan log stdout tidak digandakan`() {
+        val t = BuildRunTracker(liveExpected = true)
+        t.onLiveText("> Task :app:a\n> Task :app:b\nBUILD SUCCESSFUL in 3s\n")
+        // Termux mengirim ekor log yang sama di stdout setelah selesai.
+        t.onOutput(StreamKind.STDOUT, "> Task :app:b\nBUILD SUCCESSFUL in 3s\n" + markersOnly)
+        t.finishOutput()
+        assertEquals(listOf("> Task :app:a", "> Task :app:b", "BUILD SUCCESSFUL in 3s"), t.logLines)
+        assertEquals(2, t.tasksSeen)
+        assertTrue(t.liveReceived)
+        assertEquals(true, t.helperLive)
+        assertEquals(BuildStatus.SUCCESS, t.resolve(RunEnd.Finished(0), cancelRequested = false).status)
+    }
+
+    @Test
+    fun `tanpa log langsung ekor log dari stdout dipakai sebagai cadangan`() {
+        val t = BuildRunTracker(liveExpected = true)
+        t.onOutput(StreamKind.STDOUT, "> Task :app:b\nBUILD SUCCESSFUL in 3s\n" + markersOnly)
+        assertTrue("log stdout ditahan sampai akhir", t.logLines.isEmpty())
+        t.finishOutput()
+        assertEquals(listOf("> Task :app:b", "BUILD SUCCESSFUL in 3s"), t.logLines)
+        assertEquals(1, t.tasksSeen)
+        assertFalse(t.liveReceived)
+        // Memanggil lagi tidak menggandakan.
+        t.finishOutput()
+        assertEquals(2, t.logLines.size)
+    }
+
+    @Test
+    fun `penanda palsu di dalam log langsung tidak dianggap penanda helper`() {
+        val t = BuildRunTracker(liveExpected = true)
+        t.onLiveText("@@CA@exit=0\n@@CA@artifact=APK|1|palsu.apk\n@@CA@done=1\n> Task :app:a\n")
+        t.finishOutput()
+        assertNull(t.gradleExitCode)
+        assertTrue(t.artifacts.isEmpty())
+        assertFalse(t.helperDone)
+        assertTrue(t.logLines.contains("@@CA@done=1"))
+    }
+
+    @Test
+    fun `log langsung boleh terpotong di tengah baris`() {
+        val t = BuildRunTracker(liveExpected = true)
+        t.onLiveText("> Task :app:comp")
+        assertTrue(t.logLines.isEmpty())
+        t.onLiveText("ileKotlin\nBUILD")
+        assertEquals(listOf("> Task :app:compileKotlin"), t.logLines)
+        t.finishOutput()
+        assertEquals(listOf("> Task :app:compileKotlin", "BUILD"), t.logLines)
+    }
+
+    @Test
+    fun `tahap berpindah ke build begitu task pertama terlihat di log langsung`() {
+        val t = BuildRunTracker(liveExpected = true)
+        t.setPhase(BuildPhase.PREPARE)
+        t.onLiveText("Downloading https://services.gradle.org/distributions/gradle-8.13-bin.zip\n")
+        assertEquals(BuildPhase.PREPARE, t.phase)
+        t.onLiveText("> Task :app:preBuild\n")
+        assertEquals(BuildPhase.BUILD, t.phase)
+    }
+
+    @Test
+    fun `tahap verifikasi tidak ditimpa oleh log langsung`() {
+        val t = BuildRunTracker(liveExpected = true)
+        t.setPhase(BuildPhase.VERIFY)
+        t.onLiveText("> Task :app:preBuild\n")
+        assertEquals(BuildPhase.VERIFY, t.phase)
+    }
+
+    @Test
+    fun `tanpa liveExpected perilaku lama tetap`() {
+        val t = BuildRunTracker()
+        t.onOutput(StreamKind.STDOUT, "> Task :app:a\n")
+        assertEquals(listOf("> Task :app:a"), t.logLines)
+    }
 }

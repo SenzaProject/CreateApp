@@ -97,6 +97,7 @@ private const val MAX_SHOWN_HISTORY = 15
 fun BuildScreen(
     viewModel: BuildViewModel,
     onOpenTerminal: () -> Unit,
+    onOpenApkManager: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val build by viewModel.build.collectAsStateWithLifecycle()
@@ -149,7 +150,12 @@ fun BuildScreen(
     val currentProject = viewModel.currentProject()
 
     Column(modifier = modifier.fillMaxSize()) {
-        AppTopBar(title = stringResource(R.string.nav_build))
+        AppTopBar(
+            title = stringResource(R.string.nav_build),
+            actions = {
+                TextButton(onClick = onOpenApkManager) { Text(stringResource(R.string.apk_title)) }
+            },
+        )
         ContentContainer {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
@@ -200,7 +206,7 @@ fun BuildScreen(
                     )
                 }
                 if (build.artifacts.isNotEmpty()) {
-                    item { ArtifactsCard(build = build) }
+                    item { ArtifactsCard(build = build, onOpenApkManager = onOpenApkManager) }
                 }
                 if (build.issues.isNotEmpty()) {
                     item { IssuesCard(build = build) }
@@ -497,7 +503,9 @@ private fun RunCard(
         if (build.isActive) {
             LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
         }
-        if (build.isActive && build.noResponseYet) {
+        if (build.isActive && build.liveLog) {
+            Text(stringResource(R.string.bld_live_active), style = MaterialTheme.typography.bodySmall)
+        } else if (build.isActive && build.noResponseYet) {
             Text(stringResource(R.string.bld_no_response), style = MaterialTheme.typography.bodySmall)
         }
         val failure = build.failure
@@ -551,7 +559,7 @@ private fun statusChipColors(status: BuildStatus): Pair<Color, Color> {
 }
 
 @Composable
-private fun ArtifactsCard(build: BuildState) {
+private fun ArtifactsCard(build: BuildState, onOpenApkManager: () -> Unit) {
     val context = LocalContext.current
     val request = build.request
     val location = if (request == null) {
@@ -561,6 +569,7 @@ private fun ArtifactsCard(build: BuildState) {
     }
     SectionCard(title = stringResource(R.string.bld_section_result)) {
         build.artifacts.forEach { artifact -> ArtifactRow(artifact) }
+        Button(onClick = onOpenApkManager) { Text(stringResource(R.string.bld_open_apk_manager)) }
         if (location != null) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(

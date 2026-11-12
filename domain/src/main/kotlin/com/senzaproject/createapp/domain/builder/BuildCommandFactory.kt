@@ -29,12 +29,14 @@ class BuildCommandFactory(private val helperBase64: String) {
         projectId: String,
         type: BuildType,
         outputRootPath: String,
+        liveLogPath: String? = null,
     ): String {
         val args = "build" +
             " --source " + ShellQuote.quote(sourcePath) +
             " --name " + ShellQuote.quote(projectId) +
             " --task " + type.gradleTask +
-            " --out " + ShellQuote.quote(outputRootPath)
+            " --out " + ShellQuote.quote(outputRootPath) +
+            (if (liveLogPath == null) "" else " --live " + ShellQuote.quote(liveLogPath))
         return install() + run(args)
     }
 

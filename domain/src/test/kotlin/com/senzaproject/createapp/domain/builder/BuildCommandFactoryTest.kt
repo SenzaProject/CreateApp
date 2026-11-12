@@ -60,4 +60,26 @@ class BuildCommandFactoryTest {
         assertThrows(IllegalArgumentException::class.java) { BuildCommandFactory("abc'; rm -rf / #") }
         assertFalse(factory.check(null).contains("\n"))
     }
+
+    @Test
+    fun `build dengan log langsung menambah argumen live yang dikutip`() {
+        val command = factory.build(
+            sourcePath = "/storage/emulated/0/B/src/p1",
+            projectId = "p1",
+            type = BuildType.DEBUG,
+            outputRootPath = "/storage/emulated/0/B/out",
+            liveLogPath = "/storage/emulated/0/B/logs/p1.log",
+        )
+        assertTrue(
+            command.endsWith(
+                "--task assembleDebug --out '/storage/emulated/0/B/out' --live '/storage/emulated/0/B/logs/p1.log'",
+            ),
+        )
+    }
+
+    @Test
+    fun `path log langsung dengan tanda kutip tidak bisa keluar dari argumen`() {
+        val command = factory.build("/s", "p1", BuildType.DEBUG, "/o", liveLogPath = "/x/it's.log")
+        assertTrue(command.endsWith("--live '/x/it'\\''s.log'"))
+    }
 }

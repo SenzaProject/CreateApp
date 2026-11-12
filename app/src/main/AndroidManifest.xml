@@ -8,6 +8,9 @@
     -->
     <uses-permission android:name="com.termux.permission.RUN_COMMAND" />
 
+    <!-- Tahap 7: memasang APK hasil build lewat pemasang paket sistem (pengguna harus mengizinkan sekali). -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
     <!-- Android 11+: tanpa ini Create App tidak bisa mendeteksi maupun menghubungi Termux. -->
     <queries>
         <package android:name="com.termux" />
@@ -31,6 +34,17 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Membagikan/memasang salinan APK dari cache privat tanpa membuka akses penyimpanan luas. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
 
     </application>
 

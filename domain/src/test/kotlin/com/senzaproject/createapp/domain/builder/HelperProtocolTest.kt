@@ -111,4 +111,17 @@ class HelperProtocolTest {
         assertEquals(true, optionalMissing.isReady)
         assertEquals(false, ToolchainReport(emptyList()).isReady)
     }
+
+    @Test
+    fun `penanda live dikenali dan nilai rusak diabaikan`() {
+        assertEquals(HelperMessage.Live(true), HelperProtocol.parse("@@CA@live=1"))
+        assertEquals(HelperMessage.Live(false), HelperProtocol.parse("@@CA@live=0"))
+        assertNull(HelperProtocol.parse("@@CA@live=2"))
+        assertNull(HelperProtocol.parse("@@CA@live="))
+    }
+
+    @Test
+    fun `versi protokol helper saat ini adalah 2`() {
+        assertEquals(2, HelperProtocol.VERSION)
+    }
 }

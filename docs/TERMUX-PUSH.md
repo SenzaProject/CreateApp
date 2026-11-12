@@ -1,6 +1,6 @@
 # Push ke GitHub dari Termux
 
-Ganti `EMAIL_GITHUB_ANDA` dengan email akun GitHub Anda. **Jangan pernah** menulis token di file
+Ganti `dionoberutu06@gmail.com` dengan email akun GitHub Anda. **Jangan pernah** menulis token di file
 proyek atau memasukkannya ke commit.
 
 ## Pertama kali (belum ada repository lokal)
@@ -15,7 +15,7 @@ cd CreateApp
 
 git init -b main
 git config user.name  "SenzaProject"
-git config user.email "EMAIL_GITHUB_ANDA"
+git config user.email "dionoberutu06@gmail.com"
 
 git add .
 git status                                 # periksa: tidak ada *.jks, *.keystore, token
@@ -35,12 +35,12 @@ perubahan lokal yang belum di-commit, atau bila isi zip tidak tampak seperti pro
 cd ~/CreateApp                                  # folder repo hasil clone/push sebelumnya (sesuaikan)
 git status                                      # harus bersih ("nothing to commit")
 git config user.email                           # pastikan email akun GitHub Anda; bila kosong:
-# git config user.email "EMAIL_GITHUB_ANDA" && git config user.name "SenzaProject"
+# git config user.email "dionoberutu06@gmail.com" && git config user.name "SenzaProject"
 
 # Update pertama kali (repo lama belum punya skrip): ambil skrip dari zip dulu
 mkdir -p ~/tmp-update
-unzip -o -q /sdcard/Download/CreateApp-Tahap6.zip 'CreateApp/scripts/termux-update.sh' -d ~/tmp-update
-sh ~/tmp-update/CreateApp/scripts/termux-update.sh /sdcard/Download/CreateApp-Tahap6.zip "Tahap 6: Gradle Build lewat Termux dan GitHub Actions"
+unzip -o -q /sdcard/Download/CreateApp-Tahap7.zip 'CreateApp/scripts/termux-update.sh' -d ~/tmp-update
+sh ~/tmp-update/CreateApp/scripts/termux-update.sh /sdcard/Download/CreateApp-Tahap7.zip "Tahap 7: APK Manager, log build langsung, build inkremental"
 ```
 
 Untuk tahap berikutnya skrip sudah ada di repo, cukup:
@@ -59,18 +59,18 @@ Lupa lokasi repo? `find ~ -maxdepth 3 -name .git -path "*CreateApp*"`.
 cd ~
 rm -rf CreateApp-repo CreateApp-baru
 git clone https://github.com/SenzaProject/CreateApp.git CreateApp-repo
-mkdir CreateApp-baru && unzip -q /sdcard/Download/CreateApp-Tahap6.zip -d CreateApp-baru
+mkdir CreateApp-baru && unzip -q /sdcard/Download/CreateApp-Tahap7.zip -d CreateApp-baru
 
 cd CreateApp-repo
 git config user.name  "SenzaProject"
-git config user.email "EMAIL_GITHUB_ANDA"
+git config user.email "dionoberutu06@gmail.com"
 
 find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +    # kosongkan isi lama, simpan .git
 cp -a ../CreateApp-baru/CreateApp/. .                            # salin isi tahap baru
 
 git add -A
 git status                                 # periksa daftar berkas baru, diubah, dihapus
-git commit -m "Tahap 6: Gradle Build lewat Termux dan GitHub Actions"
+git commit -m "Tahap 7: APK Manager, log build langsung, build inkremental"
 git push origin HEAD
 ```
 

@@ -8,8 +8,8 @@
   Android IDE &amp; APK Builder — dikembangkan oleh <b>SenzaProject</b>
 </p>
 
-> **Status: Tahap 6 (Gradle Build) — kode, unit test, dan skrip Termux ditulis; logika inti dan skrip sudah diuji dengan proses nyata
-> di JVM/shell, tetapi belum dikompilasi sebagai Kotlin/Android dan belum diuji di perangkat. Menunggu CI dan uji perangkat.**
+> **Status: Tahap 7 (APK Manager) — kode, unit test, dan helper Termux v2 ditulis; helper Termux diuji dengan proses nyata (119 pemeriksaan)
+> dan logika murni diuji lewat port Java, tetapi Kotlin/Compose belum dikompilasi dan belum diuji di perangkat. Menunggu CI dan uji perangkat.**
 > Catatan: Code Editor lengkap (Tahap 4) **belum ada** di kode ini; lihat [`docs/TAHAP-5.md`](docs/TAHAP-5.md) dan [`docs/TAHAP-6.md`](docs/TAHAP-6.md).
 > Proyek ini sedang dibangun bertahap. Hanya fitur yang tercantum sebagai **Tersedia** di bawah
 > yang sudah ada; sisanya direncanakan dan tidak boleh dianggap berfungsi.
@@ -33,11 +33,11 @@ Pendekatan build bersifat **hibrid**: lokal melalui Termux dan cloud melalui Git
 | Code Editor lengkap (highlighting, undo, multi-tab) | Belum | 4 |
 | Terminal (shell lokal + Termux via RUN_COMMAND), riwayat, `cd`, hentikan perintah | Ditulis, **belum dikompilasi/diuji di perangkat** | 5 |
 | Build Gradle lokal via Termux (debug/release/AAB), batal, log, error, riwayat; build cloud via workflow manual | Ditulis, **belum dikompilasi/diuji di perangkat** (helper Termux sudah diuji dengan proses nyata) | 6 |
-| APK Manager | Belum | 7 |
+| APK Manager (daftar dari isi folder, detail APK, pasang/bagikan/ekspor/hapus, riwayat) dan log build langsung + build inkremental | Ditulis, **belum dikompilasi/diuji di perangkat** (helper Termux sudah diuji dengan proses nyata) | 7 |
 | Signing, GitHub, Cloud Build | Belum | 8–10 |
 | Error Analyzer, Preview, Settings lengkap | Belum | 11–13 |
 
-Detail lengkap: [`docs/ROADMAP.md`](docs/ROADMAP.md), [`docs/CHECKLIST.md`](docs/CHECKLIST.md), laporan tahap: [`docs/TAHAP-1.md`](docs/TAHAP-1.md), [`docs/TAHAP-2.md`](docs/TAHAP-2.md), [`docs/TAHAP-3.md`](docs/TAHAP-3.md), [`docs/TAHAP-5.md`](docs/TAHAP-5.md), [`docs/TAHAP-6.md`](docs/TAHAP-6.md).
+Detail lengkap: [`docs/ROADMAP.md`](docs/ROADMAP.md), [`docs/CHECKLIST.md`](docs/CHECKLIST.md), laporan tahap: [`docs/TAHAP-1.md`](docs/TAHAP-1.md), [`docs/TAHAP-2.md`](docs/TAHAP-2.md), [`docs/TAHAP-3.md`](docs/TAHAP-3.md), [`docs/TAHAP-5.md`](docs/TAHAP-5.md), [`docs/TAHAP-6.md`](docs/TAHAP-6.md), [`docs/TAHAP-7.md`](docs/TAHAP-7.md).
 
 ## Screenshots
 

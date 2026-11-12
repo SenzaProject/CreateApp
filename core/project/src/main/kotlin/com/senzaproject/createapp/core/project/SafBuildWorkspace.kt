@@ -7,6 +7,8 @@ import com.senzaproject.createapp.domain.builder.ArtifactValidation
 import com.senzaproject.createapp.domain.builder.ArtifactValidator
 import com.senzaproject.createapp.domain.builder.BuildArtifact
 import com.senzaproject.createapp.domain.builder.BuildWorkspace
+import com.senzaproject.createapp.domain.builder.LiveLogSource
+import com.senzaproject.createapp.domain.builder.NoLiveLog
 import com.senzaproject.createapp.domain.builder.SyncedWorkspace
 import com.senzaproject.createapp.domain.builder.WorkspaceLayout
 import com.senzaproject.createapp.domain.project.METADATA_DIR_NAME
@@ -14,7 +16,9 @@ import com.senzaproject.createapp.domain.result.AppResult
 import com.senzaproject.createapp.domain.result.OperationException
 import com.senzaproject.createapp.domain.result.OperationFailure
 import java.io.IOException
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.withContext
 
 /**
  * Folder bersama untuk build lewat Termux. Folder privat proyek Create App tidak bisa dibaca Termux
@@ -24,7 +28,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 class SafBuildWorkspace(
     context: Context,
     storage: ProjectStorage,
-    ioDispatcher: CoroutineDispatcher,
+    private val ioDispatcher: CoroutineDispatcher,
 ) : BuildWorkspace {
 
     private val appContext: Context = context.applicationContext
@@ -58,6 +62,24 @@ class SafBuildWorkspace(
                 throw e
             }
         }
+
+    override suspend fun openLiveLog(treeUri: String, projectId: String): LiveLogSource = try {
+        withContext(ioDispatcher) {
+            val tree = DocumentFile.fromTreeUri(appContext, Uri.parse(treeUri))
+            if (tree == null || !tree.isDirectory) {
+                NoLiveLog
+            } else {
+                // Hapus log build sebelumnya: helper baru mengosongkannya saat mulai, dan sebelum itu isi lama
+                // tidak boleh terbaca sebagai milik build ini.
+                tree.findFile(WorkspaceLayout.LOG_DIR)?.findFile(WorkspaceLayout.liveLogName(projectId))?.delete()
+                SafLiveLog(appContext, treeUri, projectId, ioDispatcher)
+            }
+        }
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        NoLiveLog
+    }
 
     override suspend fun verifyArtifacts(
         treeUri: String,
