@@ -8,9 +8,9 @@
   Android IDE &amp; APK Builder — dikembangkan oleh <b>SenzaProject</b>
 </p>
 
-> **Status: Tahap 7 (APK Manager) — kode, unit test, dan helper Termux v2 ditulis; helper Termux diuji dengan proses nyata (119 pemeriksaan)
-> dan logika murni diuji lewat port Java, tetapi Kotlin/Compose belum dikompilasi dan belum diuji di perangkat. Menunggu CI dan uji perangkat.**
-> Catatan: Code Editor lengkap (Tahap 4) **belum ada** di kode ini; lihat [`docs/TAHAP-5.md`](docs/TAHAP-5.md) dan [`docs/TAHAP-6.md`](docs/TAHAP-6.md).
+> **Status: Tahap 7 (APK Manager + log langsung build lokal) — kode, unit test, dan skrip Termux ditulis; logika domain dan skrip sudah diuji
+> dengan kompiler dan proses nyata di JVM/shell, tetapi layar Compose belum dikompilasi dan belum diuji di perangkat. Menunggu CI dan uji perangkat.**
+> Catatan: Code Editor lengkap (Tahap 4) **belum ada** di kode ini; lihat [`docs/TAHAP-5.md`](docs/TAHAP-5.md), [`docs/TAHAP-6.md`](docs/TAHAP-6.md), [`docs/TAHAP-7.md`](docs/TAHAP-7.md), dan panduan [`docs/BUILD-LOKAL.md`](docs/BUILD-LOKAL.md).
 > Proyek ini sedang dibangun bertahap. Hanya fitur yang tercantum sebagai **Tersedia** di bawah
 > yang sudah ada; sisanya direncanakan dan tidak boleh dianggap berfungsi.
 
@@ -33,7 +33,7 @@ Pendekatan build bersifat **hibrid**: lokal melalui Termux dan cloud melalui Git
 | Code Editor lengkap (highlighting, undo, multi-tab) | Belum | 4 |
 | Terminal (shell lokal + Termux via RUN_COMMAND), riwayat, `cd`, hentikan perintah | Ditulis, **belum dikompilasi/diuji di perangkat** | 5 |
 | Build Gradle lokal via Termux (debug/release/AAB), batal, log, error, riwayat; build cloud via workflow manual | Ditulis, **belum dikompilasi/diuji di perangkat** (helper Termux sudah diuji dengan proses nyata) | 6 |
-| APK Manager (daftar dari isi folder, detail APK, pasang/bagikan/ekspor/hapus, riwayat) dan log build langsung + build inkremental | Ditulis, **belum dikompilasi/diuji di perangkat** (helper Termux sudah diuji dengan proses nyata) | 7 |
+| APK Manager: daftar APK/AAB nyata, pasang, bagikan, ekspor, detail, hapus (konfirmasi), buka lokasi, riwayat; log langsung build lokal | Ditulis, **belum dikompilasi/diuji di perangkat** (logika domain dan helper sudah diuji) | 7 |
 | Signing, GitHub, Cloud Build | Belum | 8–10 |
 | Error Analyzer, Preview, Settings lengkap | Belum | 11–13 |
 
@@ -108,7 +108,7 @@ Keystore dan rahasia **tidak** disimpan di repository; signing release lewat Git
 - Tahap 3 belum pernah dikompilasi atau dijalankan; lihat [`docs/TAHAP-3.md`](docs/TAHAP-3.md) untuk status verifikasi yang jujur.
 - Belum ada simpan otomatis: perubahan file yang belum disimpan hilang bila aplikasi ditutup (Tahap 4). Buffer sementara dari Beranda tidak disimpan ke file.
 - Template proyek Android hanya kerangka Gradle; kemampuannya dibangun baru diuji pada Tahap 6.
-- Layar GitHub masih berupa penanda "belum tersedia". Layar Build (Tahap 6) belum pernah dikompilasi atau diuji di perangkat; log build lokal tampil setelah build selesai (batasan Termux). Lihat [`docs/TAHAP-6.md`](docs/TAHAP-6.md).
+- Layar GitHub masih berupa penanda "belum tersedia". Layar Build (Tahap 6) belum pernah dikompilasi atau diuji di perangkat; log langsung build lokal memakai berkas `live/` (Tahap 7). Lihat [`docs/TAHAP-6.md`](docs/TAHAP-6.md) dan [`docs/TAHAP-7.md`](docs/TAHAP-7.md).
 - Terminal Tahap 5 belum pernah dikompilasi atau diuji di perangkat; integrasi Termux khususnya hanya bisa dibuktikan di HP. Lihat [`docs/TAHAP-5.md`](docs/TAHAP-5.md).
 - Build lokal di HP bergantung pada Termux, JDK, SDK, dan `aapt2` yang kompatibel dengan arsitektur; belum diuji di perangkat.
 

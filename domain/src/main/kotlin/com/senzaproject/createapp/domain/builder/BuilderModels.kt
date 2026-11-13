@@ -123,10 +123,13 @@ data class BuildState(
     val exitCode: Int? = null,
     val noResponseYet: Boolean = false,
     val outputTruncated: Boolean = false,
-    /** True bila log Gradle sedang/sudah dibaca langsung dari file bersama (bukan hanya setelah build selesai). */
-    val liveLog: Boolean = false,
     /** True bila pembatalan hanya berhenti menunggu: build mungkin masih berjalan di Termux. */
     val mayStillRun: Boolean = false,
+    /** Log langsung dari helper selama build berjalan (kosong bila belum ada atau sudah selesai). */
+    val liveLines: List<String> = emptyList(),
+    val liveTask: String? = null,
+    val liveTasksSeen: Int = 0,
+    val liveDroppedLines: Int = 0,
 ) {
     val isActive: Boolean get() = status == BuildStatus.RUNNING || status == BuildStatus.CANCELLING
 }

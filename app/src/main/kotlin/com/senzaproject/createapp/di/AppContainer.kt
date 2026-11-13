@@ -6,7 +6,6 @@ import com.senzaproject.createapp.BuildConfig
 import com.senzaproject.createapp.R
 import com.senzaproject.createapp.core.builder.BuilderModule
 import com.senzaproject.createapp.core.builder.FileBuildHistoryStore
-import com.senzaproject.createapp.core.builder.SafArtifactStore
 import com.senzaproject.createapp.core.builder.SharedPrefsBuildSettingsStore
 import com.senzaproject.createapp.core.common.AndroidLogger
 import com.senzaproject.createapp.core.common.AppDispatchers
@@ -20,6 +19,8 @@ import com.senzaproject.createapp.core.project.FileProjectFilesRepository
 import com.senzaproject.createapp.core.project.FileProjectRepository
 import com.senzaproject.createapp.core.project.ProjectModule
 import com.senzaproject.createapp.core.project.ProjectStorage
+import com.senzaproject.createapp.core.project.SafArtifactStore
+import com.senzaproject.createapp.core.project.SafBuildLiveLog
 import com.senzaproject.createapp.core.project.SafBuildWorkspace
 import com.senzaproject.createapp.core.project.SafProjectTransfer
 import com.senzaproject.createapp.core.terminal.AndroidTermuxEnvironment
@@ -29,10 +30,15 @@ import com.senzaproject.createapp.core.terminal.TermuxCommandRunner
 import com.senzaproject.createapp.core.terminal.TermuxPaths
 import com.senzaproject.createapp.data.DataModule
 import com.senzaproject.createapp.data.diagnostics.AndroidDeviceInfoSource
+import com.senzaproject.createapp.apk.ApkInfo
+import com.senzaproject.createapp.apk.ApkInfoReader
+import com.senzaproject.createapp.apk.ApkStager
 import com.senzaproject.createapp.data.diagnostics.DiagnosticsRepositoryImpl
-import com.senzaproject.createapp.domain.apk.ArtifactStore
+import com.senzaproject.createapp.domain.builder.ArtifactManager
+import com.senzaproject.createapp.domain.builder.ArtifactStore
 import com.senzaproject.createapp.domain.builder.BuildCommandFactory
 import com.senzaproject.createapp.domain.builder.BuildHistoryStore
+import com.senzaproject.createapp.domain.builder.BuildLiveLogSource
 import com.senzaproject.createapp.domain.builder.BuildSession
 import com.senzaproject.createapp.domain.builder.BuildSettingsStore
 import com.senzaproject.createapp.domain.builder.BuildWorkspace
@@ -182,15 +188,33 @@ class AppContainer(application: Application) {
         ioDispatcher = dispatchers.io,
     )
 
-    // --- APK Manager (Tahap 7) ---
-
-    /** APK/AAB di folder bersama; salinan untuk pasang/bagikan disimpan di `cacheDir/artifacts`. */
-    val artifactStore: ArtifactStore = SafArtifactStore(
+    /** Log langsung yang ditulis helper Termux ke folder bersama selama build (dibaca, tidak pernah ditulis). */
+    private val buildLiveLog: BuildLiveLogSource = SafBuildLiveLog(
         context = application,
-        cacheRoot = File(application.cacheDir, "artifacts"),
-        authority = application.packageName + ".fileprovider",
         ioDispatcher = dispatchers.io,
     )
+
+    // --- APK Manager (Tahap 7) ---
+
+    /** Membaca, menghapus, dan menyalin APK/AAB di folder `out/` pada folder bersama. */
+    val artifactStore: ArtifactStore = SafArtifactStore(
+        context = application,
+        ioDispatcher = dispatchers.io,
+    )
+
+    val artifactManager: ArtifactManager = ArtifactManager(
+        store = artifactStore,
+        history = buildHistory,
+    )
+
+    /** Salinan sementara untuk dipasang/dibagikan lewat FileProvider, dan ekspor ke tujuan pilihan pengguna. */
+    val apkStager: ApkStager = ApkStager(
+        context = application,
+        manager = artifactManager,
+        ioDispatcher = dispatchers.io,
+    )
+
+    val readApkInfo: suspend (File) -> ApkInfo? = { file -> ApkInfoReader.read(application, file) }
 
     /** Helper shell yang dipasang ke Termux; dibaca dari aset hanya saat pertama dibutuhkan. */
     private val buildCommands: BuildCommandFactory by lazy {
@@ -215,6 +239,7 @@ class AppContainer(application: Application) {
             history = buildHistory,
             scope = CoroutineScope(SupervisorJob() + dispatchers.default),
             termuxHome = TermuxPaths.HOME,
+            liveLog = buildLiveLog,
         )
     }
 

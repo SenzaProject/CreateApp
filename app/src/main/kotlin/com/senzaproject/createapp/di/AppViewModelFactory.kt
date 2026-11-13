@@ -60,10 +60,11 @@ class AppViewModelFactory(
         ) as T
 
         modelClass.isAssignableFrom(ApkManagerViewModel::class.java) -> ApkManagerViewModel(
-            store = container.artifactStore,
-            history = container.buildHistory,
+            manager = container.artifactManager,
+            stager = container.apkStager,
             settings = container.buildSettings,
             observeProjects = container.observeProjects,
+            readInfo = container.readApkInfo,
         ) as T
 
         else -> throw IllegalArgumentException("ViewModel tidak dikenal: ${modelClass.name}")

@@ -8,9 +8,6 @@ sealed interface HelperMessage {
     data class Version(val version: Int) : HelperMessage
     data class Phase(val phase: BuildPhase) : HelperMessage
     data class LogFile(val path: String) : HelperMessage
-
-    /** Apakah helper menulis log Gradle ke file bersama selama build (`--live`). */
-    data class Live(val enabled: Boolean) : HelperMessage
     data class Exit(val code: Int) : HelperMessage
     data class Artifact(val kind: ArtifactKind, val sizeBytes: Long, val name: String) : HelperMessage
     data class Error(val error: HelperError) : HelperMessage
@@ -29,7 +26,7 @@ sealed interface HelperMessage {
  */
 object HelperProtocol {
     const val PREFIX = "@@CA@"
-    const val VERSION = 2
+    const val VERSION = 1
 
     fun parse(line: String): HelperMessage? {
         if (!line.startsWith(PREFIX)) return null
@@ -42,11 +39,6 @@ object HelperProtocol {
             "helper" -> value.toIntOrNull()?.let { HelperMessage.Version(it) }
             "phase" -> parsePhase(value)?.let { HelperMessage.Phase(it) }
             "log" -> if (value.isEmpty()) null else HelperMessage.LogFile(value)
-            "live" -> when (value) {
-                "1" -> HelperMessage.Live(enabled = true)
-                "0" -> HelperMessage.Live(enabled = false)
-                else -> null
-            }
             "exit" -> value.toIntOrNull()?.let { HelperMessage.Exit(it) }
             "artifact" -> parseArtifact(value)
             "error" -> HelperMessage.Error(HelperError.fromCode(value))

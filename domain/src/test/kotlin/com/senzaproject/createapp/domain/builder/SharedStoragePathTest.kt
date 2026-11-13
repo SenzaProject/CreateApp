@@ -77,29 +77,18 @@ class SharedStoragePathTest {
     }
 
     @Test
-    fun `path log langsung`() {
-        assertEquals("/r/logs/p1.log", WorkspaceLayout.liveLogPath("/r", "p1"))
-        assertEquals("p1.log", WorkspaceLayout.liveLogName("p1"))
+    fun `id dokumen dari path penyimpanan utama`() {
+        assertEquals("primary:Download/CreateAppBuild/out/p1", SharedStoragePath.documentIdForPath("/storage/emulated/0/Download/CreateAppBuild/out/p1"))
+        assertEquals("primary:", SharedStoragePath.documentIdForPath("/storage/emulated/0"))
+        assertEquals("primary:A B/c", SharedStoragePath.documentIdForPath("/storage/emulated/0/A B/c/"))
     }
 
     @Test
-    fun `id dokumen dari path penyimpanan internal`() {
-        assertEquals("primary:", SharedStoragePath.documentIdFor("/storage/emulated/0"))
-        assertEquals("primary:Download/B/out/p1", SharedStoragePath.documentIdFor("/storage/emulated/0/Download/B/out/p1"))
-        assertEquals("primary:A B/C+", SharedStoragePath.documentIdFor("/storage/emulated/0/A B/C+"))
-    }
-
-    @Test
-    fun `id dokumen ditolak untuk path di luar penyimpanan internal atau berbahaya`() {
-        assertNull(SharedStoragePath.documentIdFor("/sdcard/Download"))
-        assertNull(SharedStoragePath.documentIdFor("/storage/emulated/01/x"))
-        assertNull(SharedStoragePath.documentIdFor("/storage/emulated/0/../etc"))
-        assertNull(SharedStoragePath.documentIdFor("/storage/emulated/0/a//b"))
-    }
-
-    @Test
-    fun `id dokumen adalah kebalikan dari path pohon`() {
-        val path = SharedStoragePath.fromTreeUri(base + "primary%3ADownload%2FCreateAppBuild")
-        assertEquals("primary:Download/CreateAppBuild", SharedStoragePath.documentIdFor(path!!))
+    fun `id dokumen ditolak untuk path asing atau berbahaya`() {
+        assertNull(SharedStoragePath.documentIdForPath("/sdcard/Download"))
+        assertNull(SharedStoragePath.documentIdForPath("/storage/1234-5678/x"))
+        assertNull(SharedStoragePath.documentIdForPath("/storage/emulated/0/../x"))
+        assertNull(SharedStoragePath.documentIdForPath("/storage/emulated/0//x"))
+        assertNull(SharedStoragePath.documentIdForPath("/storage/emulated/01/x"))
     }
 }

@@ -1,28 +1,19 @@
 #!/bin/sh
-# Create App - pembantu build untuk Termux (versi 2).
+# Create App - pembantu build untuk Termux (versi 1).
 #
 # Dipasang dan dijalankan otomatis oleh aplikasi Create App lewat intent RUN_COMMAND.
 # Ditulis untuk POSIX sh (dash/bash) dan hanya memakai perintah dasar Termux.
 #
 # Pemakaian:
 #   sh build.sh check  --source DIR
-#   sh build.sh build  --source DIR --name NAMA --task TASK --out DIR [--live FILE.log]
+#   sh build.sh build  --source DIR --name NAMA --task TASK --out DIR [--run TOKEN]
 #   sh build.sh cancel
 #   sh build.sh clean
 #
 # Keluaran yang dibaca aplikasi: baris berawalan "@@CA@" (lihat HelperProtocol.kt).
-#
-# Log langsung: bila --live diberikan dan bisa ditulis, keluaran Gradle ditulis LANGSUNG ke file itu
-# (di folder bersama) sehingga aplikasi dapat membacanya selama build berjalan. Termux sendiri hanya
-# mengirim keluaran perintah setelah selesai. Bila file tidak bisa ditulis, log disimpan di folder
-# privat helper dan dicetak ke stdout di akhir (perilaku versi 1).
-#
-# Build inkremental: salinan kerja di ~/.createapp/work/NAMA dipertahankan antarbuild. File sumber
-# diganti seluruhnya, tetapi build/ di akar tiap modul dan .gradle di akar proyek dipertahankan
-# (build/outputs selalu dibuang agar APK/AAB lama tidak ikut terkumpul).
 # Skrip ini tidak pernah mencetak variabel lingkungan, token, atau password.
 
-CA_HELPER_VERSION=2
+CA_HELPER_VERSION=1
 CA_HOME="${CREATEAPP_HOME:-${HOME:-/tmp}/.createapp}"
 CA_PIDFILE="$CA_HOME/build.pid"
 CA_LOGDIR="$CA_HOME/logs"
@@ -76,7 +67,7 @@ SOURCE=""
 NAME=""
 TASK=""
 OUT=""
-LIVE=""
+RUN=""
 
 parse_args() {
     while [ $# -gt 0 ]; do
@@ -89,7 +80,7 @@ parse_args() {
             --name) NAME=$2 ;;
             --task) TASK=$2 ;;
             --out) OUT=$2 ;;
-            --live) LIVE=$2 ;;
+            --run) RUN=$2 ;;
             *)
                 say "error=BAD_ARGS"
                 exit 2
@@ -167,6 +158,36 @@ cmd_check() {
             ;;
     esac
 
+    mem_kb=$(sed -n 's/^MemTotal:[[:space:]]*\([0-9][0-9]*\) kB.*/\1/p' /proc/meminfo 2>/dev/null | head -n 1)
+    if [ -n "$mem_kb" ]; then
+        mem_mb=$((mem_kb / 1024))
+        if [ "$mem_mb" -ge 3000 ]; then
+            item memory OK "${mem_mb} MB RAM"
+        else
+            item memory WARN "${mem_mb} MB RAM: build bisa kehabisan memori; tutup aplikasi lain dan pakai build Debug"
+        fi
+    fi
+
+    set -- $(df -Pk "${HOME:-/}" 2>/dev/null | tail -n 1)
+    free_kb=${4:-}
+    case "$free_kb" in
+        '' | *[!0-9]*) ;;
+        *)
+            free_mb=$((free_kb / 1024))
+            if [ "$free_mb" -ge 3000 ]; then
+                item storage OK "${free_mb} MB ruang kosong"
+            else
+                item storage WARN "${free_mb} MB ruang kosong: Gradle butuh beberapa GB untuk cache dan hasil kompilasi"
+            fi
+            ;;
+    esac
+
+    if command -v termux-wake-lock >/dev/null 2>&1; then
+        item wakelock OK "build menahan CPU tetap aktif (termux-wake-lock)"
+    else
+        item wakelock WARN "termux-wake-lock tidak ada; layar mati bisa menghentikan build (pkg install termux-tools)"
+    fi
+
     if [ -n "$SOURCE" ]; then
         if [ -d "$SOURCE" ]; then
             item source OK "$SOURCE"
@@ -219,7 +240,33 @@ cmd_clean() {
 # --- build ---
 
 GPID=""
+SPID=""
 CANCELLED=0
+WAKELOCK=0
+LIVE=""
+
+build_cleanup() {
+    rm -f "$CA_PIDFILE"
+    if [ -n "$SPID" ]; then
+        kill "$SPID" 2>/dev/null
+    fi
+    if [ -n "$LIVE" ]; then
+        rm -f "$LIVE" "$LIVE.new" 2>/dev/null
+    fi
+    if [ "$WAKELOCK" = 1 ]; then
+        termux-wake-unlock >/dev/null 2>&1
+    fi
+}
+
+# Menyalin log Gradle ke folder bersama (header + isi) agar aplikasi bisa menampilkannya langsung.
+# Ditulis ke file sementara lalu dipindah supaya pembaca tidak pernah melihat file setengah jadi.
+publish_live() {
+    {
+        printf '# createapp-run %s\n' "$RUN"
+        tail -c 1048576 "$LOG" 2>/dev/null
+    } >"$LIVE.new" 2>/dev/null && mv -f "$LIVE.new" "$LIVE" 2>/dev/null
+    return 0
+}
 
 on_signal() {
     CANCELLED=1
@@ -264,74 +311,6 @@ make_wrapper() {
     return 0
 }
 
-# Mencetak ekor log ke stdout (cadangan bila aplikasi tidak bisa membaca log langsung).
-# Salinan lengkap disimpan di folder log privat helper.
-emit_log() {
-    if [ "$LOG" != "$PLOG" ]; then
-        cp "$LOG" "$PLOG" 2>/dev/null
-    fi
-    [ -s "$LOG" ] && tail -n 600 "$LOG"
-    return 0
-}
-
-# Menyegarkan salinan kerja $2 dari sumber $1 (lihat catatan "Build inkremental" di atas).
-# Modul = folder yang berisi build.gradle atau build.gradle.kts. Mengembalikan 1 bila gagal.
-refresh_work() {
-    rw_src=$1
-    rw_work=$2
-    rw_keep="$CA_HOME/keep.$$"
-    rw_list="$CA_HOME/keep-list.$$"
-    rw_mods="$CA_HOME/keep-mods.$$"
-    rm -rf "$rw_keep" "$rw_list" "$rw_mods"
-    mkdir -p "$rw_keep" || return 1
-    : >"$rw_list" || return 1
-
-    if [ -d "$rw_work" ]; then
-        # Jangan menelusuri build/ dan .gradle saat mencari modul. cd + "find ." agar nama folder
-        # kerja itu sendiri (mis. "build") tidak ikut dicocokkan.
-        (cd "$rw_work" && find . \( -name build -o -name .gradle \) -prune -o -type f \
-            \( -name build.gradle -o -name build.gradle.kts \) -print) >"$rw_mods" 2>/dev/null
-        while IFS= read -r rw_file; do
-            rw_mod=${rw_file%/*}
-            rw_rel=${rw_mod#.}
-            if [ -d "$rw_work$rw_rel/build" ]; then
-                if mkdir -p "$rw_keep$rw_rel" && mv "$rw_work$rw_rel/build" "$rw_keep$rw_rel/build"; then
-                    printf '%s\n' "$rw_rel" >>"$rw_list"
-                fi
-            fi
-        done <"$rw_mods"
-        if [ -d "$rw_work/.gradle" ]; then
-            if mv "$rw_work/.gradle" "$rw_keep/.gradle"; then
-                printf '@gradle\n' >>"$rw_list"
-            fi
-        fi
-    fi
-
-    rm -rf "$rw_work"
-    mkdir -p "$rw_work" || return 1
-    if ! cp -R "$rw_src"/. "$rw_work"/ 2>>"$LOG"; then
-        rm -rf "$rw_keep" "$rw_list" "$rw_mods"
-        return 1
-    fi
-
-    while IFS= read -r rw_rel; do
-        case "$rw_rel" in
-            @gradle)
-                [ -e "$rw_work/.gradle" ] || mv "$rw_keep/.gradle" "$rw_work/.gradle"
-                ;;
-            *)
-                # Pulihkan hanya bila modulnya masih ada dan sumber baru tidak membawa folder build sendiri.
-                if [ -d "$rw_work$rw_rel" ] && [ ! -e "$rw_work$rw_rel/build" ]; then
-                    mv "$rw_keep$rw_rel/build" "$rw_work$rw_rel/build" &&
-                        rm -rf "$rw_work$rw_rel/build/outputs"
-                fi
-                ;;
-        esac
-    done <"$rw_list"
-    rm -rf "$rw_keep" "$rw_list" "$rw_mods"
-    return 0
-}
-
 cmd_build() {
     say "helper=$CA_HELPER_VERSION"
     say "phase=prepare"
@@ -346,18 +325,10 @@ cmd_build() {
     require_absolute "$SOURCE" || fail BAD_ARGS 2
     require_absolute "$OUT" || fail BAD_ARGS 2
     [ "$OUT" != "/" ] || fail BAD_ARGS 2
-    if [ -n "$LIVE" ]; then
-        # File ini DIKOSONGKAN di awal build, jadi hanya terima path absolut berakhiran .log
-        # yang belum ada atau berupa file biasa.
-        require_absolute "$LIVE" || fail BAD_ARGS 2
-        case "$LIVE" in
-            *.log) ;;
-            *) fail BAD_ARGS 2 ;;
-        esac
-        if [ -e "$LIVE" ] && [ ! -f "$LIVE" ]; then
-            fail BAD_ARGS 2
-        fi
-    fi
+    case "$RUN" in
+        *[!A-Za-z0-9_-]*) fail BAD_ARGS 2 ;;
+    esac
+    [ "${#RUN}" -le 64 ] || fail BAD_ARGS 2
 
     pid=""
     [ -f "$CA_PIDFILE" ] && pid=$(cat "$CA_PIDFILE" 2>/dev/null)
@@ -373,27 +344,25 @@ cmd_build() {
 
     mkdir -p "$CA_LOGDIR" "$CA_WORKROOT" || fail COPY_FAILED 6
     echo "$$" >"$CA_PIDFILE"
-    trap 'rm -f "$CA_PIDFILE"' EXIT
+    trap 'build_cleanup' EXIT
     trap on_signal TERM INT HUP
 
+    # Tahan CPU agar build panjang tidak terhenti saat layar mati (bila Termux menyediakannya).
+    if command -v termux-wake-lock >/dev/null 2>&1; then
+        termux-wake-lock >/dev/null 2>&1 && WAKELOCK=1
+    fi
+
     stamp=$(date +%Y%m%d-%H%M%S 2>/dev/null || echo run)
-    PLOG="$CA_LOGDIR/$NAME-$stamp.log"
-    : >"$PLOG"
-    LOG=$PLOG
+    LOG="$CA_LOGDIR/$NAME-$stamp.log"
+    : >"$LOG"
     # Simpan hanya 10 log terakhir per proyek.
     old=$(ls -1t "$CA_LOGDIR"/"$NAME"-*.log 2>/dev/null | sed -n '11,$p')
     [ -n "$old" ] && printf '%s\n' "$old" | while IFS= read -r f; do rm -f "$f"; done
 
-    # Log langsung (opsional). Subshell agar kegagalan pengalihan tidak mengakhiri skrip ini.
-    if [ -n "$LIVE" ] && (mkdir -p "${LIVE%/*}" && : >"$LIVE") 2>/dev/null; then
-        LOG=$LIVE
-        say "live=1"
-    else
-        say "live=0"
-    fi
-
     WORK="$CA_WORKROOT/$NAME"
-    if ! refresh_work "$SOURCE" "$WORK"; then
+    rm -rf "$WORK"
+    mkdir -p "$WORK" || fail COPY_FAILED 6
+    if ! cp -R "$SOURCE"/. "$WORK"/ 2>>"$LOG"; then
         fail COPY_FAILED 6
     fi
 
@@ -408,17 +377,36 @@ cmd_build() {
             fail NO_WRAPPER 4
         fi
         if ! make_wrapper "$WORK"; then
-            emit_log
+            [ -s "$LOG" ] && cat "$LOG"
             fail WRAPPER_FAILED 4
         fi
     fi
 
     say "phase=build"
     say "log=$LOG"
+    if [ -n "$RUN" ]; then
+        LIVE="${OUT%/*}/live/$NAME.log"
+        mkdir -p "${LIVE%/*}" 2>/dev/null
+        printf '# createapp-run %s\n' "$RUN" >"$LIVE" 2>/dev/null || LIVE=""
+    fi
     (cd "$WORK" && exec sh ./gradlew --console=plain --no-daemon "$TASK") >>"$LOG" 2>&1 &
     GPID=$!
+    if [ -n "$LIVE" ]; then
+        HELPER_PID=$$
+        (
+            while kill -0 "$HELPER_PID" 2>/dev/null; do
+                sleep 2
+                publish_live
+            done
+        ) >/dev/null 2>&1 &
+        SPID=$!
+    fi
     wait "$GPID"
     CODE=$?
+    if [ -n "$SPID" ]; then
+        kill "$SPID" 2>/dev/null
+        SPID=""
+    fi
 
     if [ "$CANCELLED" = 1 ]; then
         i=0
@@ -429,13 +417,13 @@ cmd_build() {
         if is_alive "$GPID"; then
             kill_tree "$GPID" KILL
         fi
-        emit_log
+        cat "$LOG"
         say "cancelled=1"
         say "done=1"
         exit 143
     fi
 
-    emit_log
+    cat "$LOG"
     say "exit=$CODE"
 
     if [ "$CODE" -ne 0 ]; then

@@ -92,6 +92,9 @@ fun toolchainItemLabel(context: Context, id: String): String {
         "platform" -> R.string.bld_item_platform
         "buildtools" -> R.string.bld_item_buildtools
         "aapt2" -> R.string.bld_item_aapt2
+        "memory" -> R.string.bld_item_memory
+        "storage" -> R.string.bld_item_storage
+        "wakelock" -> R.string.bld_item_wakelock
         "source" -> R.string.bld_item_source
         else -> return id
     }

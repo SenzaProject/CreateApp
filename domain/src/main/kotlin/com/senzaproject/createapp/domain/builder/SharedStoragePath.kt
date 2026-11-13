@@ -35,15 +35,14 @@ object SharedStoragePath {
     }
 
     /**
-     * Kebalikan [fromTreeUri]: ID dokumen penyedia penyimpanan eksternal ("primary:Download/X") untuk
-     * [absolutePath] di penyimpanan internal utama, atau null bila path di luar penyimpanan itu atau
-     * mengandung `..`. Dipakai untuk membuka folder di aplikasi File.
+     * Kebalikan [fromTreeUri]: id dokumen `primary:<relatif>` untuk path di penyimpanan internal utama,
+     * dipakai membuka folder di aplikasi File. Null bila path bukan di penyimpanan utama atau tidak aman.
      */
-    fun documentIdFor(absolutePath: String): String? {
-        if (absolutePath != PRIMARY_ROOT && !absolutePath.startsWith("$PRIMARY_ROOT/")) return null
-        val relative = absolutePath.substring(PRIMARY_ROOT.length).trim('/')
-        if (relative.isEmpty()) return "$PRIMARY_VOLUME:"
-        if (relative.contains('\u0000')) return null
+    fun documentIdForPath(path: String): String? {
+        if (path == PRIMARY_ROOT) return "$PRIMARY_VOLUME:"
+        if (!path.startsWith("$PRIMARY_ROOT/")) return null
+        val relative = path.substring(PRIMARY_ROOT.length + 1).removeSuffix("/")
+        if (relative.isEmpty() || relative.contains('\u0000')) return null
         if (relative.split('/').any { it.isEmpty() || it == "." || it == ".." }) return null
         return "$PRIMARY_VOLUME:$relative"
     }
@@ -71,23 +70,18 @@ object SharedStoragePath {
     }
 }
 
-/**
- * Tata letak folder bersama: `src/<id proyek>` untuk sumber, `out/<id proyek>` untuk hasil build, dan
- * `logs/<id proyek>.log` untuk log Gradle yang ditulis helper selama build berjalan.
- */
+/** Tata letak folder bersama: `src/<id proyek>` untuk sumber, `out/<id proyek>` untuk hasil build. */
 object WorkspaceLayout {
     const val SOURCE_DIR = "src"
     const val OUTPUT_DIR = "out"
-    const val LOG_DIR = "logs"
-    const val LOG_SUFFIX = ".log"
+
+    /** Log langsung yang ditulis helper selama build: `live/<id proyek>.log`. */
+    const val LIVE_DIR = "live"
+    const val LIVE_SUFFIX = ".log"
 
     fun sourcePath(rootPath: String, projectId: String): String = "$rootPath/$SOURCE_DIR/$projectId"
 
     fun outputRootPath(rootPath: String): String = "$rootPath/$OUTPUT_DIR"
 
     fun outputPath(rootPath: String, projectId: String): String = "$rootPath/$OUTPUT_DIR/$projectId"
-
-    fun liveLogName(projectId: String): String = projectId + LOG_SUFFIX
-
-    fun liveLogPath(rootPath: String, projectId: String): String = "$rootPath/$LOG_DIR/${liveLogName(projectId)}"
 }

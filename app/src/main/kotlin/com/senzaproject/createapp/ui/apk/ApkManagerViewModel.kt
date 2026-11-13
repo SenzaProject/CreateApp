@@ -1,226 +1,294 @@
 package com.senzaproject.createapp.ui.apk
 
+import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.senzaproject.createapp.domain.apk.ArtifactDetails
-import com.senzaproject.createapp.domain.apk.ArtifactListing
-import com.senzaproject.createapp.domain.apk.ArtifactNames
-import com.senzaproject.createapp.domain.apk.ArtifactStore
-import com.senzaproject.createapp.domain.apk.BuildHistoryLinker
-import com.senzaproject.createapp.domain.apk.HistoryEntry
-import com.senzaproject.createapp.domain.apk.InstallBlock
-import com.senzaproject.createapp.domain.apk.InstallPolicy
-import com.senzaproject.createapp.domain.apk.ManagedArtifact
-import com.senzaproject.createapp.domain.apk.ProjectArtifacts
-import com.senzaproject.createapp.domain.builder.BuildHistoryStore
+import com.senzaproject.createapp.apk.ApkInfo
+import com.senzaproject.createapp.apk.ApkInfoReader
+import com.senzaproject.createapp.apk.ApkStager
+import com.senzaproject.createapp.domain.builder.ArtifactEntry
+import com.senzaproject.createapp.domain.builder.ArtifactManager
+import com.senzaproject.createapp.domain.builder.ArtifactRules
+import com.senzaproject.createapp.domain.builder.ArtifactSnapshot
 import com.senzaproject.createapp.domain.builder.BuildSettingsStore
+import com.senzaproject.createapp.domain.builder.InstallBlock
 import com.senzaproject.createapp.domain.builder.SharedStoragePath
+import com.senzaproject.createapp.domain.builder.WorkspaceLayout
 import com.senzaproject.createapp.domain.project.ObserveProjectsUseCase
-import com.senzaproject.createapp.domain.project.Project
 import com.senzaproject.createapp.domain.result.AppError
 import com.senzaproject.createapp.domain.result.AppResult
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
-/** Peristiwa sekali pakai yang harus ditangani layar (membuka intent, menampilkan pesan). */
-sealed interface ApkEvent {
-    data class Install(val contentUri: String) : ApkEvent
-    data class Share(val contentUri: String, val mime: String) : ApkEvent
-    data class Blocked(val reason: InstallBlock) : ApkEvent
-    data class Failed(val error: AppError) : ApkEvent
-    data object NeedFolder : ApkEvent
-    data class Exported(val bytes: Long) : ApkEvent
-    data object Deleted : ApkEvent
+/** Pesan singkat sekali tampil; teksnya ditentukan UI. */
+enum class ApkMessage {
+    BLOCK_NOT_APK,
+    BLOCK_UNSIGNED,
+    BLOCK_INVALID,
+    BLOCK_NOT_CHECKED,
+    BLOCK_MISSING,
+    SHARE_BLOCKED,
+    EXPORT_DONE,
+    DELETE_DONE,
+    NEED_INSTALL_PERMISSION,
+    NO_APP_FOR_ACTION,
+    PATH_COPIED,
+    BUSY,
+    DETAILS_UNREADABLE,
 }
 
+/** Operasi panjang yang sedang berjalan (menyalin file besar), untuk ditampilkan dengan kemajuan nyata. */
+enum class ApkBusyKind { PREPARE_INSTALL, PREPARE_SHARE, EXPORT, DETAILS }
+
+class ApkBusy(val kind: ApkBusyKind, val fileName: String, val doneBytes: Long, val totalBytes: Long) {
+    val fraction: Float
+        get() = if (totalBytes <= 0L) 0f else (doneBytes.toFloat() / totalBytes.toFloat()).coerceIn(0f, 1f)
+}
+
+/** Sekali jalan: UI membuat Intent dari ini lalu memanggil [ApkManagerViewModel.consumeLaunch]. */
+sealed interface ApkLaunch {
+    data class Install(val uri: Uri) : ApkLaunch
+    data class Share(val uri: Uri, val mimeType: String, val title: String) : ApkLaunch
+}
+
+class ApkExportRequest(val entry: ArtifactEntry, val suggestedName: String) {
+    /** Diisi UI setelah pemilih dokumen dibuka, supaya rotasi layar tidak membukanya dua kali. */
+    var launched: Boolean = false
+}
+
+class ApkDetails(val entry: ArtifactEntry, val info: ApkInfo?)
+
 class ApkManagerViewModel(
-    private val store: ArtifactStore,
-    private val history: BuildHistoryStore,
+    private val manager: ArtifactManager,
+    private val stager: ApkStager,
     private val settings: BuildSettingsStore,
-    observeProjects: ObserveProjectsUseCase,
+    private val observeProjects: ObserveProjectsUseCase,
+    private val readInfo: suspend (java.io.File) -> ApkInfo?,
 ) : ViewModel() {
 
-    val projects: StateFlow<List<Project>> = observeProjects()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    var treeUri: String? by mutableStateOf(settings.sharedTreeUri)
+        private set
+
+    var snapshot: ArtifactSnapshot? by mutableStateOf(null)
+        private set
 
     var loading: Boolean by mutableStateOf(false)
         private set
 
-    var groups: List<ProjectArtifacts> by mutableStateOf(emptyList())
+    var loadError: AppError? by mutableStateOf(null)
         private set
 
-    var historyEntries: List<HistoryEntry> by mutableStateOf(emptyList())
+    var busy: ApkBusy? by mutableStateOf(null)
         private set
 
-    var listError: AppError? by mutableStateOf(null)
+    var message: ApkMessage? by mutableStateOf(null)
         private set
 
-    /** Kunci artefak yang sedang diproses (memeriksa, menyalin, menghapus); tombolnya dinonaktifkan. */
-    var busyKey: String? by mutableStateOf(null)
+    /** Kegagalan operasi (ditampilkan lewat teks kategori error, bukan pesan mentah). */
+    var errorMessage: AppError? by mutableStateOf(null)
         private set
 
-    var selected: ManagedArtifact? by mutableStateOf(null)
+    var launch: ApkLaunch? by mutableStateOf(null)
         private set
 
-    var selectedDetails: ArtifactDetails? by mutableStateOf(null)
+    var exportRequest: ApkExportRequest? by mutableStateOf(null)
         private set
 
-    var detailsLoading: Boolean by mutableStateOf(false)
+    var pendingDelete: ArtifactEntry? by mutableStateOf(null)
         private set
 
-    var pendingDelete: ManagedArtifact? by mutableStateOf(null)
+    var details: ApkDetails? by mutableStateOf(null)
         private set
 
-    var event: ApkEvent? by mutableStateOf(null)
-        private set
+    private var refreshJob: Job? = null
+    private var verifyJob: Job? = null
+    private var operationJob: Job? = null
 
-    private var all: List<ManagedArtifact> = emptyList()
-    private val detailsCache = HashMap<String, Pair<ManagedArtifact, ArtifactDetails>>()
+    /** Path folder bersama yang dilihat Termux/aplikasi File, atau null bila belum dipilih. */
+    val sharedPath: String?
+        get() = treeUri?.let { SharedStoragePath.fromTreeUri(it) }
 
-    val treeUri: String? get() = settings.sharedTreeUri
+    /** Path folder hasil untuk satu artefak: `<folder bersama>/out/<id proyek>`. */
+    fun outputPath(entry: ArtifactEntry): String? =
+        sharedPath?.let { WorkspaceLayout.outputPath(it, entry.projectId) }
 
-    /** Path folder bersama (dilihat Termux), atau null bila belum dipilih. */
-    val sharedPath: String? get() = treeUri?.let { SharedStoragePath.fromTreeUri(it) }
+    /** Id dokumen untuk membuka folder hasil di aplikasi File. */
+    fun outputDocumentId(entry: ArtifactEntry): String? = outputPath(entry)?.let { SharedStoragePath.documentIdForPath(it) }
 
-    fun projectName(projectId: String): String =
-        projects.value.firstOrNull { it.id == projectId }?.name ?: projectId
+    // --- Memuat daftar ---
 
     fun refresh() {
-        val uri = treeUri
+        val uri = settings.sharedTreeUri
+        treeUri = uri
+        refreshJob?.cancel()
+        verifyJob?.cancel()
         if (uri == null) {
-            all = emptyList()
-            groups = emptyList()
-            historyEntries = emptyList()
+            snapshot = null
+            loadError = null
+            loading = false
             return
         }
-        viewModelScope.launch {
-            loading = true
-            when (val result = store.list(uri)) {
-                is AppResult.Success -> {
-                    all = result.value
-                    groups = ArtifactListing.group(all)
-                    listError = null
-                    // Detail lama dibuang bila filenya berubah (ukuran atau waktu ubah beda).
-                    val live = all.associateBy { it.key }
-                    detailsCache.entries.removeAll { (key, cached) -> live[key] != cached.first }
-                    // Artefak yang sedang dibuka tetap sinkron dengan isi folder.
-                    selected = selected?.let { live[it.key] }
-                    if (selected == null) selectedDetails = null
-                    historyEntries = BuildHistoryLinker.link(history.load(), all)
-                }
+        loading = true
+        refreshJob = viewModelScope.launch {
+            try {
+                val names = observeProjects().first().associate { it.id to it.name }
+                when (val result = manager.refresh(uri, names)) {
+                    is AppResult.Success -> {
+                        snapshot = result.value
+                        loadError = null
+                        verifyPending(uri)
+                    }
 
-                is AppResult.Failure -> {
-                    listError = result.error
-                    all = emptyList()
-                    groups = emptyList()
+                    is AppResult.Failure -> {
+                        snapshot = null
+                        loadError = result.error
+                    }
                 }
+            } finally {
+                loading = false
             }
-            loading = false
         }
     }
 
-    // --- Detail ---
+    /** Memeriksa isi tiap file yang belum diperiksa satu per satu; daftar sudah tampil lebih dulu. */
+    private fun verifyPending(uri: String) {
+        verifyJob?.cancel()
+        val pending = snapshot?.entries?.filter { it.validation == com.senzaproject.createapp.domain.builder.ArtifactValidation.NOT_CHECKED }
+            ?: return
+        verifyJob = viewModelScope.launch {
+            for (entry in pending) {
+                val checked = manager.verify(uri, entry)
+                val current = snapshot ?: return@launch
+                snapshot = current.copy(
+                    entries = current.entries.map { if (it.stored == checked.stored) checked else it },
+                )
+            }
+        }
+    }
 
-    fun open(artifact: ManagedArtifact) {
-        selected = artifact
-        selectedDetails = detailsCache[artifact.key]?.second
-        if (selectedDetails == null) loadDetails(artifact)
+    // --- Pasang dan bagikan ---
+
+    fun install(entry: ArtifactEntry) {
+        entry.installBlock?.let {
+            message = it.toMessage()
+            return
+        }
+        runStaged(entry, ApkBusyKind.PREPARE_INSTALL) { staged ->
+            launch = ApkLaunch.Install(staged.uri)
+        }
+    }
+
+    fun share(entry: ArtifactEntry) {
+        if (!entry.canShare) {
+            message = ApkMessage.SHARE_BLOCKED
+            return
+        }
+        runStaged(entry, ApkBusyKind.PREPARE_SHARE) { staged ->
+            launch = ApkLaunch.Share(staged.uri, staged.mimeType, entry.name)
+        }
+    }
+
+    fun showDetails(entry: ArtifactEntry) {
+        if (entry.kind != com.senzaproject.createapp.domain.builder.ArtifactKind.APK) {
+            // AAB bukan APK: Android tidak bisa membacanya sebagai paket, tampilkan data dari daftar saja.
+            details = ApkDetails(entry, null)
+            return
+        }
+        if (!entry.canShare) {
+            message = ApkMessage.DETAILS_UNREADABLE
+            return
+        }
+        runStaged(entry, ApkBusyKind.DETAILS) { staged ->
+            val info = withContext(Dispatchers.IO) { readInfo(staged.file) }
+            details = ApkDetails(entry, info)
+            if (info == null) message = ApkMessage.DETAILS_UNREADABLE
+        }
     }
 
     fun closeDetails() {
-        selected = null
-        selectedDetails = null
-        detailsLoading = false
+        details = null
     }
 
-    private fun loadDetails(artifact: ManagedArtifact) {
-        val uri = treeUri ?: return
-        viewModelScope.launch {
-            detailsLoading = true
-            when (val result = store.inspect(uri, artifact)) {
-                is AppResult.Success -> {
-                    detailsCache[artifact.key] = Pair(artifact, result.value)
-                    if (selected?.key == artifact.key) selectedDetails = result.value
-                }
-
-                is AppResult.Failure -> event = ApkEvent.Failed(result.error)
-            }
-            detailsLoading = false
-        }
+    fun consumeLaunch() {
+        launch = null
     }
 
-    // --- Aksi ---
+    fun onNoAppForAction() {
+        message = ApkMessage.NO_APP_FOR_ACTION
+    }
 
-    /** Memeriksa file, menerapkan [InstallPolicy], lalu menyalin ke cache dan meminta layar membuka pemasang. */
-    fun install(artifact: ManagedArtifact, canRequestInstalls: Boolean) {
-        val uri = treeUri ?: run {
-            event = ApkEvent.NeedFolder
+    fun onNeedInstallPermission() {
+        message = ApkMessage.NEED_INSTALL_PERMISSION
+    }
+
+    fun onPathCopied() {
+        message = ApkMessage.PATH_COPIED
+    }
+
+    private fun runStaged(entry: ArtifactEntry, kind: ApkBusyKind, onReady: suspend (com.senzaproject.createapp.apk.StagedArtifact) -> Unit) {
+        val uri = treeUri
+        if (uri == null) return
+        if (busy != null) {
+            message = ApkMessage.BUSY
             return
         }
-        viewModelScope.launch {
-            busyKey = artifact.key
+        busy = ApkBusy(kind, entry.name, 0L, entry.sizeBytes)
+        operationJob = viewModelScope.launch {
             try {
-                val details = detailsFor(uri, artifact) ?: return@launch
-                val block = InstallPolicy.check(artifact, details, canRequestInstalls)
-                if (block != null) {
-                    event = ApkEvent.Blocked(block)
-                    return@launch
-                }
-                when (val staged = store.stage(uri, artifact)) {
-                    is AppResult.Success -> event = ApkEvent.Install(staged.value.contentUri)
-                    is AppResult.Failure -> event = ApkEvent.Failed(staged.error)
+                when (val result = stager.stage(uri, entry) { done -> updateProgress(done) }) {
+                    is AppResult.Success -> onReady(result.value)
+                    is AppResult.Failure -> errorMessage = result.error
                 }
             } finally {
-                busyKey = null
+                busy = null
             }
         }
     }
 
-    fun share(artifact: ManagedArtifact) {
-        val uri = treeUri ?: run {
-            event = ApkEvent.NeedFolder
+    // --- Ekspor ---
+
+    /** Menyiapkan permintaan ekspor; UI membuka pemilih dokumen dengan [ApkExportRequest.suggestedName]. */
+    fun requestExport(entry: ArtifactEntry) {
+        if (!entry.canShare) {
+            message = ApkMessage.SHARE_BLOCKED
             return
         }
-        viewModelScope.launch {
-            busyKey = artifact.key
-            try {
-                when (val staged = store.stage(uri, artifact)) {
-                    is AppResult.Success ->
-                        event = ApkEvent.Share(staged.value.contentUri, ArtifactNames.mimeType(artifact.kind))
-
-                    is AppResult.Failure -> event = ApkEvent.Failed(staged.error)
-                }
-            } finally {
-                busyKey = null
-            }
-        }
-    }
-
-    fun export(artifact: ManagedArtifact, destinationUri: String) {
-        val uri = treeUri ?: run {
-            event = ApkEvent.NeedFolder
+        if (busy != null) {
+            message = ApkMessage.BUSY
             return
         }
-        viewModelScope.launch {
-            busyKey = artifact.key
+        exportRequest = ApkExportRequest(entry, ArtifactRules.exportFileName(entry.projectName, entry.name))
+    }
+
+    /** Dipanggil dengan hasil pemilih dokumen; [destination] null berarti dibatalkan. */
+    fun finishExport(destination: Uri?) {
+        val request = exportRequest ?: return
+        exportRequest = null
+        val uri = treeUri
+        if (destination == null || uri == null) return
+        busy = ApkBusy(ApkBusyKind.EXPORT, request.entry.name, 0L, request.entry.sizeBytes)
+        operationJob = viewModelScope.launch {
             try {
-                event = when (val result = store.export(uri, artifact, destinationUri)) {
-                    is AppResult.Success -> ApkEvent.Exported(result.value)
-                    is AppResult.Failure -> ApkEvent.Failed(result.error)
+                when (val result = stager.exportTo(uri, request.entry, destination) { done -> updateProgress(done) }) {
+                    is AppResult.Success -> message = ApkMessage.EXPORT_DONE
+                    is AppResult.Failure -> errorMessage = result.error
                 }
             } finally {
-                busyKey = null
+                busy = null
             }
         }
     }
 
-    fun askDelete(artifact: ManagedArtifact) {
-        pendingDelete = artifact
+    // --- Hapus (selalu dengan konfirmasi) ---
+
+    fun requestDelete(entry: ArtifactEntry) {
+        pendingDelete = entry
     }
 
     fun cancelDelete() {
@@ -228,46 +296,61 @@ class ApkManagerViewModel(
     }
 
     fun confirmDelete() {
-        val artifact = pendingDelete ?: return
+        val entry = pendingDelete ?: return
         pendingDelete = null
         val uri = treeUri ?: return
         viewModelScope.launch {
-            busyKey = artifact.key
-            try {
-                when (val result = store.delete(uri, artifact)) {
-                    is AppResult.Success -> {
-                        detailsCache.remove(artifact.key)
-                        if (selected?.key == artifact.key) closeDetails()
-                        event = ApkEvent.Deleted
-                    }
-
-                    is AppResult.Failure -> event = ApkEvent.Failed(result.error)
+            when (val result = manager.delete(uri, entry)) {
+                is AppResult.Success -> {
+                    message = ApkMessage.DELETE_DONE
+                    // Salinan sementara file yang sama tidak boleh tertinggal.
+                    stager.clear()
                 }
-            } finally {
-                busyKey = null
+
+                is AppResult.Failure -> errorMessage = result.error
             }
-            // Daftar dimuat ulang dari isi folder agar yang tampil selalu yang benar-benar ada.
+            // Selalu baca ulang: tampilan harus mengikuti keadaan file sebenarnya, berhasil atau tidak.
             refresh()
         }
     }
 
-    fun consumeEvent() {
-        event = null
+    // --- Pembatalan operasi dan pesan ---
+
+    fun cancelBusy() {
+        operationJob?.cancel()
+        busy = null
     }
 
-    private suspend fun detailsFor(uri: String, artifact: ManagedArtifact): ArtifactDetails? {
-        detailsCache[artifact.key]?.let { if (it.first == artifact) return it.second }
-        return when (val result = store.inspect(uri, artifact)) {
-            is AppResult.Success -> {
-                detailsCache[artifact.key] = Pair(artifact, result.value)
-                if (selected?.key == artifact.key) selectedDetails = result.value
-                result.value
-            }
+    fun consumeMessage() {
+        message = null
+    }
 
-            is AppResult.Failure -> {
-                event = ApkEvent.Failed(result.error)
-                null
-            }
+    fun consumeError() {
+        errorMessage = null
+    }
+
+    private fun updateProgress(done: Long) {
+        val current = busy ?: return
+        // Hindari pembaruan UI untuk setiap potongan 64 KB.
+        if (done == current.totalBytes || done - current.doneBytes >= PROGRESS_STEP) {
+            busy = ApkBusy(current.kind, current.fileName, done, current.totalBytes)
         }
     }
+
+    override fun onCleared() {
+        super.onCleared()
+        operationJob?.cancel()
+    }
+
+    private companion object {
+        const val PROGRESS_STEP = 256L * 1024
+    }
+}
+
+private fun InstallBlock.toMessage(): ApkMessage = when (this) {
+    InstallBlock.NOT_APK -> ApkMessage.BLOCK_NOT_APK
+    InstallBlock.UNSIGNED -> ApkMessage.BLOCK_UNSIGNED
+    InstallBlock.INVALID_FILE -> ApkMessage.BLOCK_INVALID
+    InstallBlock.NOT_CHECKED -> ApkMessage.BLOCK_NOT_CHECKED
+    InstallBlock.MISSING -> ApkMessage.BLOCK_MISSING
 }

@@ -150,12 +150,7 @@ fun BuildScreen(
     val currentProject = viewModel.currentProject()
 
     Column(modifier = modifier.fillMaxSize()) {
-        AppTopBar(
-            title = stringResource(R.string.nav_build),
-            actions = {
-                TextButton(onClick = onOpenApkManager) { Text(stringResource(R.string.apk_title)) }
-            },
-        )
+        AppTopBar(title = stringResource(R.string.nav_build))
         ContentContainer {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
@@ -206,14 +201,15 @@ fun BuildScreen(
                     )
                 }
                 if (build.artifacts.isNotEmpty()) {
-                    item { ArtifactsCard(build = build, onOpenApkManager = onOpenApkManager) }
+                    item { ArtifactsCard(build = build) }
                 }
                 if (build.issues.isNotEmpty()) {
                     item { IssuesCard(build = build) }
                 }
-                if (build.logLines.isNotEmpty()) {
+                if (build.logLines.isNotEmpty() || build.liveLines.isNotEmpty()) {
                     item { LogCard(build = build) }
                 }
+                item { ApkManagerCard(onOpen = onOpenApkManager) }
                 item {
                     HistoryCard(
                         records = viewModel.historyRecords,
@@ -478,7 +474,7 @@ private fun RunCard(
         if (build.isActive && phase != null) {
             Text(stringResource(phase.labelRes()), style = MaterialTheme.typography.bodyMedium)
         }
-        val task = build.currentTask
+        val task = build.currentTask ?: build.liveTask
         if (task != null) {
             Text(
                 text = stringResource(R.string.bld_current_task, task),
@@ -487,9 +483,10 @@ private fun RunCard(
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        if (build.tasksSeen > 0) {
+        val tasksShown = maxOf(build.tasksSeen, build.liveTasksSeen)
+        if (tasksShown > 0) {
             Text(
-                stringResource(R.string.bld_tasks_count, build.tasksSeen),
+                stringResource(R.string.bld_tasks_count, tasksShown),
                 style = MaterialTheme.typography.bodySmall,
             )
         }
@@ -503,9 +500,7 @@ private fun RunCard(
         if (build.isActive) {
             LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
         }
-        if (build.isActive && build.liveLog) {
-            Text(stringResource(R.string.bld_live_active), style = MaterialTheme.typography.bodySmall)
-        } else if (build.isActive && build.noResponseYet) {
+        if (build.isActive && build.noResponseYet) {
             Text(stringResource(R.string.bld_no_response), style = MaterialTheme.typography.bodySmall)
         }
         val failure = build.failure
@@ -559,7 +554,7 @@ private fun statusChipColors(status: BuildStatus): Pair<Color, Color> {
 }
 
 @Composable
-private fun ArtifactsCard(build: BuildState, onOpenApkManager: () -> Unit) {
+private fun ArtifactsCard(build: BuildState) {
     val context = LocalContext.current
     val request = build.request
     val location = if (request == null) {
@@ -569,7 +564,6 @@ private fun ArtifactsCard(build: BuildState, onOpenApkManager: () -> Unit) {
     }
     SectionCard(title = stringResource(R.string.bld_section_result)) {
         build.artifacts.forEach { artifact -> ArtifactRow(artifact) }
-        Button(onClick = onOpenApkManager) { Text(stringResource(R.string.bld_open_apk_manager)) }
         if (location != null) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
@@ -637,11 +631,18 @@ private fun IssueRow(issue: BuildIssue) {
 @Composable
 private fun LogCard(build: BuildState) {
     val context = LocalContext.current
-    val shown = build.logLines.takeLast(MAX_SHOWN_LOG_LINES).joinToString("\n")
+    // Selama build berjalan Termux belum mengirim keluaran; log langsung dari helper dipakai sebagai gantinya.
+    val isLive = build.logLines.isEmpty() && build.liveLines.isNotEmpty()
+    val lines = if (isLive) build.liveLines else build.logLines
+    val dropped = if (isLive) build.liveDroppedLines else build.droppedLogLines
+    val shown = lines.takeLast(MAX_SHOWN_LOG_LINES).joinToString("\n")
     SectionCard(title = stringResource(R.string.bld_section_log)) {
-        if (build.droppedLogLines > 0) {
+        if (isLive) {
+            Text(stringResource(R.string.bld_log_live), style = MaterialTheme.typography.bodySmall)
+        }
+        if (dropped > 0) {
             Text(
-                stringResource(R.string.bld_log_dropped, build.droppedLogLines),
+                stringResource(R.string.bld_log_dropped, dropped),
                 style = MaterialTheme.typography.bodySmall,
             )
         }
@@ -661,7 +662,7 @@ private fun LogCard(build: BuildState) {
         }
         TextButton(
             onClick = {
-                copyToClipboard(context, build.logLines.joinToString("\n"))
+                copyToClipboard(context, lines.joinToString("\n"))
                 Toast.makeText(context, R.string.bld_log_copied, Toast.LENGTH_SHORT).show()
             },
         ) {
@@ -721,6 +722,16 @@ private fun HistoryCard(
                 Spacer(Modifier.width(8.dp))
                 Text(stringResource(R.string.bld_history_clear))
             }
+        }
+    }
+}
+
+@Composable
+private fun ApkManagerCard(onOpen: () -> Unit) {
+    SectionCard(title = stringResource(R.string.bld_apk_manager_title)) {
+        Text(stringResource(R.string.bld_apk_manager_desc), style = MaterialTheme.typography.bodyMedium)
+        OutlinedButton(onClick = onOpen) {
+            Text(stringResource(R.string.bld_apk_manager_open))
         }
     }
 }

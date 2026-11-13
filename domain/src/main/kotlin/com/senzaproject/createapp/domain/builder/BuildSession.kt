@@ -11,10 +11,7 @@ import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.cancelAndJoin
-import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -23,7 +20,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 const val DEFAULT_CANCEL_GRACE_MILLIS = 60_000L
-const val DEFAULT_LIVE_POLL_MILLIS = 1_000L
 
 sealed interface ToolchainResult {
     data class Report(val report: ToolchainReport) : ToolchainResult
@@ -64,13 +60,13 @@ class BuildSession(
     private val termuxHome: String,
     private val clock: () -> Long = { System.currentTimeMillis() },
     private val cancelGraceMillis: Long = DEFAULT_CANCEL_GRACE_MILLIS,
-    private val livePollMillis: Long = DEFAULT_LIVE_POLL_MILLIS,
     private val newId: () -> String = { UUID.randomUUID().toString() },
+    /** Log langsung dari folder bersama; null = tidak dipakai (hanya hasil akhir yang tampil). */
+    private val liveLog: BuildLiveLogSource? = null,
+    private val liveIntervalMillis: Long = DEFAULT_LIVE_LOG_INTERVAL_MILLIS,
+    private val newRunToken: () -> String = { UUID.randomUUID().toString() },
 ) {
     private val lock = Any()
-
-    /** Menserialkan akses ke [BuildRunTracker]: penarik log langsung dan pembaca stdout berjalan di coroutine berbeda. */
-    private val trackerLock = Any()
     private val mutableState = MutableStateFlow(BuildState())
 
     val state: StateFlow<BuildState> = mutableState.asStateFlow()
@@ -162,8 +158,7 @@ class BuildSession(
 
     private suspend fun execute(request: BuildRequest) {
         val startedAt = mutableState.value.startedAtMillis
-        val tracker = BuildRunTracker(liveExpected = true)
-        var live: LiveLogSource? = null
+        val tracker = BuildRunTracker()
         try {
             val sync = workspace.sync(request.projectId, request.sharedTreeUri)
             if (sync is AppResult.Failure) {
@@ -177,35 +172,25 @@ class BuildSession(
                 return
             }
 
-            val liveSource = workspace.openLiveLog(request.sharedTreeUri, request.projectId)
-            live = liveSource
-
+            val runToken = if (liveLog != null) newRunToken() else null
             val command = commands.build(
                 sourcePath = WorkspaceLayout.sourcePath(request.sharedRootPath, request.projectId),
                 projectId = request.projectId,
                 type = request.type,
                 outputRootPath = WorkspaceLayout.outputRootPath(request.sharedRootPath),
-                liveLogPath = WorkspaceLayout.liveLogPath(request.sharedRootPath, request.projectId),
+                runToken = runToken,
             )
-            synchronized(trackerLock) {
-                tracker.setPhase(BuildPhase.PREPARE)
-                publish(tracker)
-            }
+            tracker.setPhase(BuildPhase.PREPARE)
+            publish(tracker)
 
-            val end = runCommand(command, tracker, liveSource)
-            drainLive(liveSource, tracker)
-            synchronized(trackerLock) {
-                tracker.finishOutput()
-                publish(tracker)
-            }
+            val end = runCommand(command, tracker, request, runToken)
+            tracker.finishOutput()
 
             var resolution = tracker.resolve(end, isCancelRequested())
             var artifacts: List<BuildArtifact> = tracker.artifacts.toList()
             if (resolution.status == BuildStatus.SUCCESS) {
-                synchronized(trackerLock) {
-                    tracker.setPhase(BuildPhase.VERIFY)
-                    publish(tracker)
-                }
+                tracker.setPhase(BuildPhase.VERIFY)
+                publish(tracker)
                 when (val verified = workspace.verifyArtifacts(request.sharedTreeUri, request.projectId, artifacts)) {
                     is AppResult.Success -> {
                         artifacts = verified.value
@@ -226,8 +211,7 @@ class BuildSession(
             conclude(request, tracker, startedAt, resolution, artifacts)
         } catch (e: CancellationException) {
             withContext(NonCancellable) {
-                live?.let { drainLive(it, tracker) }
-                synchronized(trackerLock) { tracker.finishOutput() }
+                tracker.finishOutput()
                 conclude(
                     request,
                     tracker,
@@ -251,7 +235,12 @@ class BuildSession(
     private fun isCancelRequested(): Boolean = synchronized(lock) { cancelRequested }
 
     /** Menjalankan perintah build dan mengumpulkan keluarannya. Berakhir saat perintah selesai atau dihentikan. */
-    private suspend fun runCommand(command: String, tracker: BuildRunTracker, live: LiveLogSource): RunEnd {
+    private suspend fun runCommand(
+        command: String,
+        tracker: BuildRunTracker,
+        request: BuildRequest,
+        runToken: String?,
+    ): RunEnd {
         val outcome = RunOutcome()
         val newCollector = synchronized(lock) {
             if (cancelRequested) {
@@ -266,61 +255,55 @@ class BuildSession(
                 launched
             }
         } ?: return RunEnd.Stopped
-        // Selama Termux menjalankan build, baca log Gradle dari file bersama agar kemajuan terlihat langsung.
-        val poller = scope.launch { pollLive(live, tracker) }
+        val poller = if (liveLog != null && runToken != null) scope.launch { pollLive(request, runToken) } else null
         try {
             newCollector.join()
         } finally {
-            // NonCancellable: bila build dibatalkan, penarik harus benar-benar berhenti sebelum tracker dipakai lagi.
-            withContext(NonCancellable) { poller.cancelAndJoin() }
+            poller?.cancel()
         }
         return outcome.end
     }
 
-    private suspend fun pollLive(live: LiveLogSource, tracker: BuildRunTracker) {
-        while (currentCoroutineContext().isActive) {
-            try {
-                val text = live.readNew(flush = false)
-                if (!text.isNullOrEmpty()) {
-                    synchronized(trackerLock) {
-                        tracker.onLiveText(text)
-                        publish(tracker)
-                    }
-                }
+    /**
+     * Selama perintah berjalan, membaca log langsung yang ditulis helper ke folder bersama dan
+     * menampilkannya. Hanya log dengan token run ini yang dipakai, jadi sisa build lama tidak tampil.
+     * Kegagalan membaca diabaikan (tampilan langsung hanyalah bonus; hasil akhir tetap dari Termux).
+     */
+    private suspend fun pollLive(request: BuildRequest, token: String) {
+        val source = liveLog ?: return
+        while (true) {
+            delay(liveIntervalMillis)
+            val text = try {
+                source.read(request.sharedTreeUri, request.projectId, DEFAULT_LIVE_LOG_MAX_BYTES)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                // Kegagalan membaca log langsung tidak boleh mengganggu build; log cadangan dari stdout tetap ada.
+                null
             }
-            delay(livePollMillis)
-        }
-    }
-
-    /** Membaca sisa log langsung (termasuk baris terakhir tanpa baris baru) setelah perintah berakhir. */
-    private suspend fun drainLive(live: LiveLogSource, tracker: BuildRunTracker) {
-        val text = try {
-            live.readNew(flush = true)
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            null
-        }
-        if (!text.isNullOrEmpty()) {
-            synchronized(trackerLock) {
-                tracker.onLiveText(text)
-                publish(tracker)
+            val view = text?.let { LiveLog.parse(it, token) } ?: continue
+            mutableState.update { current ->
+                if (!current.isActive) {
+                    current
+                } else {
+                    current.copy(
+                        liveLines = view.lines,
+                        liveTask = view.currentTask,
+                        liveTasksSeen = view.tasksSeen,
+                        liveDroppedLines = view.droppedLines,
+                    )
+                }
             }
         }
     }
 
     private fun consumeBuildEvent(event: CommandEvent, tracker: BuildRunTracker, outcome: RunOutcome) {
         when (event) {
-            is CommandEvent.Output -> synchronized(trackerLock) {
+            is CommandEvent.Output -> {
                 tracker.onOutput(event.stream, event.text)
                 publish(tracker)
             }
 
-            is CommandEvent.Notice -> synchronized(trackerLock) {
+            is CommandEvent.Notice -> {
                 tracker.onNotice(event.notice)
                 publish(tracker)
             }
@@ -345,7 +328,6 @@ class BuildSession(
                 exitCode = tracker.gradleExitCode,
                 noResponseYet = tracker.noResponseYet,
                 outputTruncated = tracker.outputTruncated,
-                liveLog = tracker.liveReceived,
             )
         }
     }
@@ -401,8 +383,11 @@ class BuildSession(
                 exitCode = tracker.gradleExitCode,
                 noResponseYet = false,
                 outputTruncated = tracker.outputTruncated,
-                liveLog = tracker.liveReceived,
                 mayStillRun = resolution.mayStillRun,
+                liveLines = emptyList(),
+                liveTask = null,
+                liveTasksSeen = 0,
+                liveDroppedLines = 0,
             )
         }
     }

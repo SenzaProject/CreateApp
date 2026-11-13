@@ -28,7 +28,7 @@ export PATH
 make_minbin() {
     mb=$1
     mkdir -p "$mb"
-    for tool in sh dash bash cat sed head tr ls rm mkdir cp find wc date mktemp sleep grep uname dirname tail echo printf; do
+    for tool in sh dash bash cat sed head tr ls rm mv mkdir cp find wc date mktemp sleep grep uname dirname tail df echo printf; do
         p=$(command -v "$tool" 2>/dev/null)
         case "$p" in /*) ln -sf "$p" "$mb/$tool" ;; esac
     done
@@ -75,20 +75,16 @@ make_project() {
     dir=$1
     mkdir -p "$dir/app/src" "$dir/gradle/wrapper"
     : >"$dir/settings.gradle.kts"
-    : >"$dir/build.gradle.kts"
-    : >"$dir/app/build.gradle.kts"
     echo 'class Main' >"$dir/app/src/Main.kt"
     : >"$dir/gradle/wrapper/gradle-wrapper.jar"
     cat >"$dir/gradlew" <<'EOF'
 #!/bin/sh
 for last; do :; done
 echo "> Task :app:preBuild UP-TO-DATE"
-# Meniru sisa kompilasi: dilaporkan bila keluaran lama masih ada, lalu ditambah penanda tiap build.
-[ -e app/build/outputs ] && echo "SAW-OLD-OUTPUTS"
-mkdir -p app/build/intermediates build .gradle
-echo run >>app/build/intermediates/marker
-echo run >>build/rootmarker
-echo state >.gradle/state
+if [ "$FAKE_MODE" = slow ]; then
+  echo "> Task :app:slowTask"
+  sleep 5
+fi
 case "$FAKE_MODE" in
   fail)
     echo "> Task :app:compileDebugKotlin FAILED"
@@ -108,8 +104,7 @@ esac
 case "$last" in
   assembleDebug)
     mkdir -p app/build/outputs/apk/debug
-    printf 'DEBUGAPK' >app/build/outputs/apk/debug/app-debug.apk
-    [ "$FAKE_MODE" = stale ] && printf 'OLD' >app/build/outputs/apk/debug/app-old-debug.apk ;;
+    printf 'DEBUGAPK' >app/build/outputs/apk/debug/app-debug.apk ;;
   assembleRelease)
     mkdir -p app/build/outputs/apk/debug app/build/outputs/apk/release
     printf 'DEBUGAPK' >app/build/outputs/apk/debug/app-debug.apk
@@ -139,7 +134,7 @@ new_env
 make_project "$SRC"
 FAKE_MODE=ok run_build assembleDebug
 check "kode keluar 0" rc_is 0
-check "penanda helper (versi 2)" has_line "@@CA@helper=2"
+check "penanda helper" has_line "@@CA@helper=1"
 check "fase prepare" has_line "@@CA@phase=prepare"
 check "fase wrapper" has_line "@@CA@phase=wrapper"
 check "fase build" has_line "@@CA@phase=build"
@@ -379,108 +374,104 @@ run_helper clean
 check "clean ok" has_line "@@CA@clean=ok"
 check "folder kerja terhapus" missing "$CREATEAPP_HOME/work"
 
-echo "[19] log langsung ditulis ke file bersama"
+echo "[19] log langsung ditulis ke folder bersama selama build"
 new_env
 make_project "$SRC"
-LIVEFILE="$CASE/shared/logs/proj.log"
-FAKE_MODE=ok run_helper build --source "$SRC" --name proj --task assembleDebug --out "$OUTDIR" --live "$LIVEFILE"
-check "kode keluar 0" rc_is 0
-check "penanda live=1" has_line "@@CA@live=1"
-check "file log langsung dibuat (folder logs dibuat otomatis)" exists "$LIVEFILE"
-check "file log langsung berisi keluaran Gradle" grep -q -F "> Task :app:preBuild UP-TO-DATE" "$LIVEFILE"
-check "file log langsung berisi BUILD SUCCESSFUL" grep -q -F "BUILD SUCCESSFUL in 3s" "$LIVEFILE"
-check "stdout tetap memuat ekor log sebagai cadangan" has_text "BUILD SUCCESSFUL in 3s"
-check "salinan privat log tersimpan" sh -c "grep -q -F 'BUILD SUCCESSFUL' '$CREATEAPP_HOME'/logs/proj-*.log"
-check "penanda tidak masuk ke file log langsung" sh -c "! grep -q '@@CA@' '$LIVEFILE'"
+LIVEFILE="$CASE/shared/live/proj.log"
+( FAKE_MODE=slow "$SH_UNDER_TEST" "$HELPER" build --source "$SRC" --name proj --task assembleDebug --out "$OUTDIR" --run tok-19 >"$CASE/build.out" 2>&1; echo $? >"$CASE/build.rc" ) &
+BGPID=$!
+i=0
+while [ "$i" -lt 40 ]; do
+    if [ -f "$LIVEFILE" ] && grep -q 'slowTask' "$LIVEFILE" 2>/dev/null; then break; fi
+    sleep 0.25 2>/dev/null || sleep 1
+    i=$((i + 1))
+done
+check "file log langsung ada saat build berjalan" exists "$LIVEFILE"
+check "baris pertama adalah header dengan token run" sh -c "[ \"\$(head -n 1 '$LIVEFILE')\" = '# createapp-run tok-19' ]"
+check "isi log Gradle muncul selagi build berjalan" sh -c "grep -q -x '> Task :app:slowTask' '$LIVEFILE'"
+check "berkas pid tetap ada selama build (sidecar tidak merusaknya)" exists "$CREATEAPP_HOME/build.pid"
+check "tidak ada file sementara tertinggal" missing "$LIVEFILE.new"
+wait "$BGPID"
+check "build dengan --run tetap sukses" sh -c "[ \"\$(cat '$CASE/build.rc')\" = 0 ]"
+check "log langsung dihapus setelah selesai" missing "$LIVEFILE"
+check "keluaran akhir tetap lengkap" sh -c "grep -q -x '@@CA@done=1' '$CASE/build.out'"
+check "APK tetap tersalin" exists "$OUTDIR/proj/app-debug.apk"
+check "berkas pid dibersihkan" missing "$CREATEAPP_HOME/build.pid"
 
-echo "[20] log langsung: isi lama dikosongkan dan argumen ditolak bila berbahaya"
-new_env
-make_project "$SRC"
-LIVEFILE="$CASE/shared/logs/proj.log"
-mkdir -p "$CASE/shared/logs"
-printf 'LOG-LAMA\n' >"$LIVEFILE"
-FAKE_MODE=ok run_helper build --source "$SRC" --name proj --task assembleDebug --out "$OUTDIR" --live "$LIVEFILE"
-check "isi lama tidak tersisa" sh -c "! grep -q 'LOG-LAMA' '$LIVEFILE'"
-printf 'JANGAN-DITIMPA\n' >"$CASE/penting.txt"
-run_helper build --source "$SRC" --name proj --task assembleDebug --out "$OUTDIR" --live "$CASE/penting.txt"
-check "file bukan .log ditolak" has_line "@@CA@error=BAD_ARGS"
-check "file bukan .log tidak ditimpa" sh -c "[ \"\$(cat '$CASE/penting.txt')\" = JANGAN-DITIMPA ]"
-run_helper build --source "$SRC" --name proj --task assembleDebug --out "$OUTDIR" --live "relatif.log"
-check "path live relatif ditolak" has_line "@@CA@error=BAD_ARGS"
-mkdir -p "$CASE/folder.log"
-run_helper build --source "$SRC" --name proj --task assembleDebug --out "$OUTDIR" --live "$CASE/folder.log"
-check "path live berupa folder ditolak" has_line "@@CA@error=BAD_ARGS"
-
-echo "[21] log langsung tidak bisa ditulis: jatuh ke stdout (live=0), build tetap berjalan"
-new_env
-make_project "$SRC"
-printf 'bukan folder' >"$CASE/berkas"
-FAKE_MODE=ok run_helper build --source "$SRC" --name proj --task assembleDebug --out "$OUTDIR" --live "$CASE/berkas/x.log"
-check "kode keluar 0" rc_is 0
-check "penanda live=0" has_line "@@CA@live=0"
-check "log tetap tercetak di stdout" has_text "BUILD SUCCESSFUL in 3s"
-check "APK tetap dihasilkan" exists "$OUTDIR/proj/app-debug.apk"
-
-echo "[22] tanpa --live: live=0 dan perilaku lama"
+echo "[20] tanpa --run tidak ada log langsung; token tidak valid ditolak"
 new_env
 make_project "$SRC"
 FAKE_MODE=ok run_build assembleDebug
-check "penanda live=0" has_line "@@CA@live=0"
-check "log di stdout" has_text "> Task :app:preBuild UP-TO-DATE"
+check "build tanpa --run sukses" rc_is 0
+check "folder live tidak dibuat" missing "$CASE/shared/live"
+run_helper build --source "$SRC" --name proj --task assembleDebug --out "$OUTDIR" --run "x'; touch /tmp/pwned19; '"
+check "token berbahaya ditolak" has_line "@@CA@error=BAD_ARGS"
+check "tidak ada eksekusi tersisip" missing /tmp/pwned19
+run_helper build --source "$SRC" --name proj --task assembleDebug --out "$OUTDIR" --run "a b"
+check "token berspasi ditolak" has_line "@@CA@error=BAD_ARGS"
 
-echo "[23] build inkremental: hasil kompilasi dipertahankan, sumber diperbarui"
+echo "[21] wake lock dipasang selama build dan dilepas sesudahnya"
 new_env
 make_project "$SRC"
-mkdir -p "$SRC/app/src/main/java/x/build" "$SRC/app/src/main/java/x/lama"
-printf 'v1\n' >"$SRC/app/src/main/java/x/build/Foo.kt"
-printf 'lama\n' >"$SRC/app/src/main/java/x/lama/Dihapus.kt"
-FAKE_MODE=stale run_build assembleDebug
-WORKDIR="$CREATEAPP_HOME/work/proj"
-check "build pertama sukses" rc_is 0
-check "build pertama melaporkan APK lama juga" has_text "app-old-debug.apk"
-check "build pertama tidak melihat keluaran lama" no_text "SAW-OLD-OUTPUTS"
-printf 'v2\n' >"$SRC/app/src/main/java/x/build/Foo.kt"
-rm -rf "$SRC/app/src/main/java/x/lama"
-printf 'baru\n' >"$SRC/app/src/Baru.kt"
-FAKE_MODE=ok run_build assembleDebug
-check "build kedua sukses" rc_is 0
-check "penanda kompilasi modul dipertahankan (2 kali jalan)" sh -c "[ \"\$(wc -l <'$WORKDIR/app/build/intermediates/marker' | tr -d ' ')\" = 2 ]"
-check "penanda kompilasi akar dipertahankan (2 kali jalan)" sh -c "[ \"\$(wc -l <'$WORKDIR/build/rootmarker' | tr -d ' ')\" = 2 ]"
-check ".gradle akar dipertahankan" exists "$WORKDIR/.gradle/state"
-check "keluaran lama dibuang sebelum Gradle" no_text "SAW-OLD-OUTPUTS"
-check "APK lama (nama berbeda) TIDAK ikut dilaporkan" no_text "app-old-debug.apk"
-check "APK lama tidak disalin" missing "$OUTDIR/proj/app-old-debug.apk"
-check "APK baru dilaporkan" has_line "@@CA@artifact=APK|8|app-debug.apk"
-check "paket bernama build tetap diperbarui (bukan dipertahankan)" sh -c "[ \"\$(cat '$WORKDIR/app/src/main/java/x/build/Foo.kt')\" = v2 ]"
-check "file sumber yang dihapus ikut hilang" missing "$WORKDIR/app/src/main/java/x/lama/Dihapus.kt"
-check "file sumber baru ada" exists "$WORKDIR/app/src/Baru.kt"
-check "folder penyimpanan sementara dibersihkan" sh -c "! ls '$CREATEAPP_HOME'/keep* >/dev/null 2>&1"
-
-echo "[24] build inkremental: modul dihapus, nama folder berspasi, sumber membawa folder build sendiri"
-new_env
+WLBIN="$CASE/wlbin"
+mkdir -p "$WLBIN"
+printf '#!/bin/sh\necho lock >>"%s"\n' "$CASE/wl.log" >"$WLBIN/termux-wake-lock"
+printf '#!/bin/sh\necho unlock >>"%s"\n' "$CASE/wl.log" >"$WLBIN/termux-wake-unlock"
+chmod +x "$WLBIN/termux-wake-lock" "$WLBIN/termux-wake-unlock"
+OUTPUT=$(PATH="$WLBIN:$PATH" FAKE_MODE=ok "$SH_UNDER_TEST" "$HELPER" build --source "$SRC" --name proj --task assembleDebug --out "$OUTDIR" 2>&1)
+RC=$?
+check "build sukses dengan wake lock" rc_is 0
+check "lock lalu unlock tercatat berurutan" sh -c "[ \"\$(tr '\n' ' ' <'$CASE/wl.log')\" = 'lock unlock ' ]"
+rm -f "$CASE/wl.log"
+rm -rf "$SRC" "$OUTDIR/proj"
 make_project "$SRC"
-mkdir -p "$SRC/modul lama"
-: >"$SRC/modul lama/build.gradle.kts"
-FAKE_MODE=ok run_build assembleDebug
-WORKDIR="$CREATEAPP_HOME/work/proj"
-mkdir -p "$WORKDIR/modul lama/build"
-echo sisa >"$WORKDIR/modul lama/build/sisa.txt"
-rm -rf "$SRC/modul lama"
-mkdir -p "$SRC/app/build"
-echo dari-sumber >"$SRC/app/build/milik-sumber.txt"
-FAKE_MODE=ok run_build assembleDebug
-check "build sukses" rc_is 0
-check "build/ milik modul yang dihapus tidak dipulihkan" missing "$WORKDIR/modul lama"
-check "folder build milik sumber tidak ditimpa hasil lama" exists "$WORKDIR/app/build/milik-sumber.txt"
-check "hasil lama tidak dipulihkan ke folder build milik sumber (penanda hanya 1 kali jalan)" sh -c "[ \"\$(wc -l <'$WORKDIR/app/build/intermediates/marker' | tr -d ' ')\" = 1 ]"
-
-echo "[25] clean menghapus salinan kerja inkremental"
+OUTPUT=$(PATH="$WLBIN:$PATH" FAKE_MODE=fail "$SH_UNDER_TEST" "$HELPER" build --source "$SRC" --name proj --task assembleDebug --out "$OUTDIR" 2>&1)
+RC=$?
+check "build gagal kode keluar 1" rc_is 1
+check "build gagal tetap melepas wake lock" sh -c "[ \"\$(tr '\n' ' ' <'$CASE/wl.log')\" = 'lock unlock ' ]"
 new_env
 make_project "$SRC"
 FAKE_MODE=ok run_build assembleDebug
-check "ada salinan kerja" exists "$CREATEAPP_HOME/work/proj"
-run_helper clean
-check "salinan kerja hilang" missing "$CREATEAPP_HOME/work"
+check "tanpa termux-wake-lock build tetap berjalan" rc_is 0
+
+echo "[22] check melaporkan memori, ruang, dan wake lock"
+new_env
+run_helper check
+check "butir memory ada" has_text "@@CA@check=memory|"
+check "butir storage ada" has_text "@@CA@check=storage|"
+check "butir wakelock ada" has_text "@@CA@check=wakelock|"
+check "check tetap selesai (done=1)" has_line "@@CA@done=1"
+
+echo "[23] pembatalan membersihkan log langsung dan proses pendamping"
+new_env
+make_project "$SRC"
+LIVEFILE="$CASE/shared/live/proj.log"
+( FAKE_MODE=hang "$SH_UNDER_TEST" "$HELPER" build --source "$SRC" --name proj --task assembleDebug --out "$OUTDIR" --run tok-23 >"$CASE/build.out" 2>&1; echo $? >"$CASE/build.rc" ) &
+BGPID=$!
+i=0
+while [ "$i" -lt 40 ]; do
+    if [ -f "$LIVEFILE" ] && grep -q 'compileDebugKotlin' "$LIVEFILE" 2>/dev/null; then break; fi
+    sleep 0.25 2>/dev/null || sleep 1
+    i=$((i + 1))
+done
+check "log langsung ada sebelum dibatalkan" exists "$LIVEFILE"
+run_helper cancel
+check "cancel melaporkan killed" has_line "@@CA@cancel=killed"
+wait "$BGPID"
+check "build dibatalkan keluar 143" sh -c "[ \"\$(cat '$CASE/build.rc')\" = 143 ]"
+check "log langsung dihapus" missing "$LIVEFILE"
+helper_alive() {
+    for d in /proc/[0-9]*; do
+        if [ -r "$d/cmdline" ] && tr '\0' ' ' <"$d/cmdline" 2>/dev/null | grep -q 'tok-23'; then
+            return 0
+        fi
+    done
+    return 1
+}
+sleep 1
+not_helper_alive() { ! helper_alive; }
+check "tidak ada proses helper/pendamping tersisa" not_helper_alive
+check "berkas pid dibersihkan" missing "$CREATEAPP_HOME/build.pid"
 
 echo
 echo "Hasil: $PASS lulus, $FAIL gagal"

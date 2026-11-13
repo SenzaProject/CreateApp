@@ -96,8 +96,8 @@ tidak jalan; biasanya diatasi dengan `aapt2` untuk Termux dan `android.aapt2From
 
 ## Keterbatasan yang diketahui
 
-- **(Diperbaiki di Tahap 7 — lihat `docs/TAHAP-7.md`, log kini dibaca langsung dari file bersama.)** Sebelumnya: **log tampil setelah build selesai.** Termux mengirim keluaran hanya saat perintah berakhir (dan memotong ke ±100 KB, bagian awal
-  dibuang). Layar tidak bisa menampilkan kemajuan langsung; ia memberi tahu hal ini.
+- **Log akhir tampil setelah build selesai** (Termux mengirim keluaran hanya saat perintah berakhir dan memotong ke ±100 KB). Sejak
+  Tahap 7 ada log langsung lewat berkas `live/<id>.log` di folder bersama (lihat `docs/TAHAP-7.md`).
 - **Build lokal di HP berat dan rapuh**: butuh JDK, Android SDK, dan `aapt2` yang cocok dengan arsitektur; build pertama mengunduh
   dependensi. Tidak ada klaim dukungan universal; gunakan jalur cloud bila Termux sulit.
 - Setiap build menyalin ulang proyek dan membangun dari nol (tanpa build inkremental) demi hasil yang benar dan sederhana.

@@ -114,11 +114,11 @@ fun CreateAppNavHost(
             BuildScreen(
                 viewModel = viewModel,
                 onOpenTerminal = { navController.navigateSecondary(Routes.TERMINAL) },
-                onOpenApkManager = { navController.navigateSecondary(Routes.APK_MANAGER) },
+                onOpenApkManager = { navController.navigateSecondary(Routes.APKS) },
             )
         }
 
-        composable(Routes.APK_MANAGER) {
+        composable(Routes.APKS) {
             val viewModel: ApkManagerViewModel = viewModel(factory = viewModelFactory)
             ApkManagerScreen(
                 viewModel = viewModel,

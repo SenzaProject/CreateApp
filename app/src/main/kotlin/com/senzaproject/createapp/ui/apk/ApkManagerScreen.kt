@@ -1,38 +1,37 @@
 package com.senzaproject.createapp.ui.apk
 
+import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.provider.DocumentsContract
-import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Android
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -40,9 +39,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -51,23 +51,23 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import com.senzaproject.createapp.R
-import com.senzaproject.createapp.domain.apk.ArtifactAvailability
-import com.senzaproject.createapp.domain.apk.ArtifactNames
-import com.senzaproject.createapp.domain.apk.HistoryEntry
-import com.senzaproject.createapp.domain.apk.InstallBlock
-import com.senzaproject.createapp.domain.apk.InstallPolicy
-import com.senzaproject.createapp.domain.apk.ManagedArtifact
+import com.senzaproject.createapp.apk.ApkIntents
+import com.senzaproject.createapp.domain.builder.ArtifactEntry
+import com.senzaproject.createapp.domain.builder.ArtifactHistoryItem
+import com.senzaproject.createapp.domain.builder.ArtifactKind
+import com.senzaproject.createapp.domain.builder.ArtifactSnapshot
 import com.senzaproject.createapp.domain.builder.ArtifactValidation
-import com.senzaproject.createapp.domain.builder.SharedStoragePath
-import com.senzaproject.createapp.domain.builder.WorkspaceLayout
-import com.senzaproject.createapp.ui.builder.formatElapsed
+import com.senzaproject.createapp.domain.builder.InstallBlock
 import com.senzaproject.createapp.ui.builder.formatSize
 import com.senzaproject.createapp.ui.builder.labelRes
 import com.senzaproject.createapp.ui.common.messageRes
 import com.senzaproject.createapp.ui.components.AppTopBar
+import com.senzaproject.createapp.ui.components.ConfirmDestructiveDialog
 import com.senzaproject.createapp.ui.components.ContentContainer
 import com.senzaproject.createapp.ui.components.EmptyState
+import com.senzaproject.createapp.ui.components.KeyValueRow
 import com.senzaproject.createapp.ui.components.SectionCard
+import com.senzaproject.createapp.ui.components.StatusChip
 import com.senzaproject.createapp.ui.theme.CodeTextStyle
 import java.text.DateFormat
 import java.util.Date
@@ -79,127 +79,318 @@ fun ApkManagerScreen(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
-    var tab by rememberSaveable { mutableStateOf(0) }
 
-    // Isi folder bisa berubah di luar aplikasi (build selesai, file dihapus di aplikasi File).
+    // File bisa berubah di luar aplikasi (build di Termux, dihapus lewat aplikasi File): baca ulang tiap kembali.
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.refresh() }
 
-    var exportTarget by remember { mutableStateOf<ManagedArtifact?>(null) }
-    val exportLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument("application/octet-stream"),
-    ) { uri: Uri? ->
-        val artifact = exportTarget
-        exportTarget = null
-        if (uri != null && artifact != null) viewModel.export(artifact, uri.toString())
-    }
-
-    val event = viewModel.event
-    LaunchedEffect(event) {
-        if (event != null) {
-            handleEvent(context, event)
-            viewModel.consumeEvent()
+    val message = viewModel.message
+    LaunchedEffect(message) {
+        if (message != null) {
+            Toast.makeText(context, context.getString(message.textRes()), Toast.LENGTH_LONG).show()
+            viewModel.consumeMessage()
         }
     }
+
+    val error = viewModel.errorMessage
+    LaunchedEffect(error) {
+        if (error != null) {
+            Toast.makeText(context, context.getString(error.messageRes()), Toast.LENGTH_LONG).show()
+            viewModel.consumeError()
+        }
+    }
+
+    val launch = viewModel.launch
+    LaunchedEffect(launch) {
+        if (launch != null) {
+            when (launch) {
+                is ApkLaunch.Install -> {
+                    if (ApkIntents.canRequestInstalls(context)) {
+                        startSafely(context, ApkIntents.install(launch.uri)) { viewModel.onNoAppForAction() }
+                    } else {
+                        // Izin "pasang aplikasi tidak dikenal" wajib dari pengguna; arahkan ke pengaturannya.
+                        viewModel.onNeedInstallPermission()
+                        startSafely(context, ApkIntents.unknownSourcesSettings(context)) { viewModel.onNoAppForAction() }
+                    }
+                }
+
+                is ApkLaunch.Share -> {
+                    startSafely(context, ApkIntents.share(launch.uri, launch.mimeType, launch.title)) {
+                        viewModel.onNoAppForAction()
+                    }
+                }
+            }
+            viewModel.consumeLaunch()
+        }
+    }
+
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/octet-stream"),
+    ) { uri: Uri? -> viewModel.finishExport(uri) }
+    val exportRequest = viewModel.exportRequest
+    LaunchedEffect(exportRequest) {
+        if (exportRequest != null && !exportRequest.launched) {
+            exportRequest.launched = true
+            try {
+                exportLauncher.launch(exportRequest.suggestedName)
+            } catch (e: ActivityNotFoundException) {
+                viewModel.finishExport(null)
+                viewModel.onNoAppForAction()
+            }
+        }
+    }
+
+    val snapshot = viewModel.snapshot
+    val busy = viewModel.busy
 
     Column(modifier = modifier.fillMaxSize()) {
         AppTopBar(
             title = stringResource(R.string.apk_title),
             onBack = onBack,
             actions = {
-                IconButton(onClick = viewModel::refresh) {
+                IconButton(onClick = viewModel::refresh, enabled = !viewModel.loading) {
                     Icon(Icons.Filled.Refresh, contentDescription = stringResource(R.string.apk_refresh))
                 }
             },
         )
         ContentContainer {
-            Column(modifier = Modifier.fillMaxSize()) {
-                if (viewModel.loading) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                TabRow(selectedTabIndex = tab) {
-                    Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text(stringResource(R.string.apk_tab_files)) })
-                    Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text(stringResource(R.string.apk_tab_history)) })
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                if (busy != null) {
+                    item { BusyCard(busy = busy, onCancel = viewModel::cancelBusy) }
                 }
-                if (tab == 0) {
-                    FilesTab(viewModel = viewModel)
-                } else {
-                    HistoryTab(viewModel = viewModel)
+                when {
+                    viewModel.sharedPath == null -> item {
+                        EmptyState(
+                            icon = Icons.Filled.Android,
+                            title = stringResource(R.string.apk_no_folder_title),
+                            description = stringResource(R.string.apk_no_folder_desc),
+                        )
+                    }
+
+                    viewModel.loadError != null -> item {
+                        SectionCard(title = stringResource(R.string.apk_title)) {
+                            Text(
+                                text = stringResource(R.string.apk_load_failed),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                            OutlinedButton(onClick = viewModel::refresh) { Text(stringResource(R.string.apk_retry)) }
+                        }
+                    }
+
+                    snapshot == null -> item {
+                        SectionCard(title = stringResource(R.string.apk_title)) {
+                            Text(stringResource(R.string.apk_loading), style = MaterialTheme.typography.bodyMedium)
+                            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                        }
+                    }
+
+                    else -> {
+                        item { SummaryCard(snapshot = snapshot, folder = viewModel.sharedPath.orEmpty()) }
+                        if (snapshot.entries.isEmpty()) {
+                            item {
+                                EmptyState(
+                                    icon = Icons.Filled.Android,
+                                    title = stringResource(R.string.apk_no_files_title),
+                                    description = stringResource(R.string.apk_no_files_desc),
+                                )
+                            }
+                        }
+                        items(snapshot.entries, key = { it.key }) { entry ->
+                            ArtifactCard(
+                                entry = entry,
+                                outputPath = viewModel.outputPath(entry),
+                                enabled = busy == null,
+                                onInstall = { viewModel.install(entry) },
+                                onShare = { viewModel.share(entry) },
+                                onExport = { viewModel.requestExport(entry) },
+                                onDetails = { viewModel.showDetails(entry) },
+                                onOpenFolder = {
+                                    val id = viewModel.outputDocumentId(entry)
+                                    val path = viewModel.outputPath(entry)
+                                    val opened = id != null &&
+                                        startSafely(context, ApkIntents.openFolder(id)) { }
+                                    if (!opened && path != null) {
+                                        // Tidak ada aplikasi File yang bisa membuka folder: setidaknya salin path-nya.
+                                        copyToClipboard(context, path)
+                                        viewModel.onPathCopied()
+                                    }
+                                },
+                                onCopyPath = {
+                                    viewModel.outputPath(entry)?.let { path ->
+                                        copyToClipboard(context, path)
+                                        viewModel.onPathCopied()
+                                    }
+                                },
+                                onDelete = { viewModel.requestDelete(entry) },
+                            )
+                        }
+                        item { HistoryCard(items = snapshot.history) }
+                    }
                 }
             }
         }
-    }
-
-    val selected = viewModel.selected
-    if (selected != null) {
-        DetailDialog(
-            viewModel = viewModel,
-            artifact = selected,
-            onExport = {
-                exportTarget = selected
-                try {
-                    exportLauncher.launch(selected.name)
-                } catch (e: ActivityNotFoundException) {
-                    Toast.makeText(context, R.string.apk_msg_picker_unavailable, Toast.LENGTH_LONG).show()
-                }
-            },
-        )
     }
 
     val pending = viewModel.pendingDelete
     if (pending != null) {
-        AlertDialog(
-            onDismissRequest = viewModel::cancelDelete,
-            title = { Text(stringResource(R.string.apk_delete_title)) },
-            text = { Text(stringResource(R.string.apk_delete_message, pending.name, formatSize(pending.sizeBytes))) },
-            confirmButton = {
-                TextButton(onClick = viewModel::confirmDelete) { Text(stringResource(R.string.apk_delete)) }
-            },
-            dismissButton = {
-                TextButton(onClick = viewModel::cancelDelete) { Text(stringResource(R.string.action_cancel)) }
-            },
+        ConfirmDestructiveDialog(
+            title = stringResource(R.string.apk_delete_title),
+            message = stringResource(R.string.apk_delete_message, pending.name),
+            confirmLabel = stringResource(R.string.action_delete),
+            onConfirm = viewModel::confirmDelete,
+            onDismiss = viewModel::cancelDelete,
+        )
+    }
+
+    val details = viewModel.details
+    if (details != null) {
+        DetailsDialog(details = details, outputPath = viewModel.outputPath(details.entry), onClose = viewModel::closeDetails)
+    }
+}
+
+@Composable
+private fun SummaryCard(snapshot: ArtifactSnapshot, folder: String) {
+    val summary = snapshot.summary
+    SectionCard(title = stringResource(R.string.apk_summary_title)) {
+        Text(
+            text = stringResource(R.string.apk_summary_count, summary.count, formatSize(summary.totalBytes)),
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.Bold,
+        )
+        Text(
+            text = stringResource(R.string.apk_summary_folder, folder),
+            style = CodeTextStyle,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }
 
-// --- Tab File ---
+@Composable
+private fun BusyCard(busy: ApkBusy, onCancel: () -> Unit) {
+    SectionCard(title = stringResource(busy.kind.labelRes())) {
+        Text(busy.fileName, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(
+            text = stringResource(R.string.apk_busy_progress, formatSize(busy.doneBytes), formatSize(busy.totalBytes)),
+            style = MaterialTheme.typography.bodySmall,
+        )
+        LinearProgressIndicator(progress = { busy.fraction }, modifier = Modifier.fillMaxWidth())
+        TextButton(onClick = onCancel) { Text(stringResource(R.string.apk_busy_cancel)) }
+    }
+}
 
 @Composable
-private fun FilesTab(viewModel: ApkManagerViewModel) {
-    val groups = viewModel.groups
-    val error = viewModel.listError
-    when {
-        viewModel.treeUri == null -> EmptyState(
-            icon = Icons.Filled.Refresh,
-            title = stringResource(R.string.apk_need_folder_title),
-            description = stringResource(R.string.apk_need_folder_desc),
-        )
+private fun ArtifactCard(
+    entry: ArtifactEntry,
+    outputPath: String?,
+    enabled: Boolean,
+    onInstall: () -> Unit,
+    onShare: () -> Unit,
+    onExport: () -> Unit,
+    onDetails: () -> Unit,
+    onOpenFolder: () -> Unit,
+    onCopyPath: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme
+    val unknown = stringResource(R.string.apk_unknown)
+    SectionCard(title = entry.name) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            StatusChip(text = entry.kind.name, containerColor = scheme.primaryContainer, contentColor = scheme.onPrimaryContainer)
+            val colors = validationColors(entry.validation)
+            StatusChip(
+                text = stringResource(entry.validation.labelRes()),
+                containerColor = colors.first,
+                contentColor = colors.second,
+            )
+            if (entry.isUnsigned) {
+                StatusChip(
+                    text = stringResource(R.string.apk_unsigned_chip),
+                    containerColor = scheme.errorContainer,
+                    contentColor = scheme.onErrorContainer,
+                )
+            }
+        }
 
-        error != null -> EmptyState(
-            icon = Icons.Filled.Refresh,
-            title = stringResource(R.string.apk_list_failed),
-            description = stringResource(error.messageRes()),
-        )
+        KeyValueRow(label = stringResource(R.string.apk_field_size), value = formatSize(entry.sizeBytes))
+        KeyValueRow(label = stringResource(R.string.apk_field_project), value = entry.projectName ?: unknown)
+        val build = entry.build
+        if (build != null) {
+            KeyValueRow(label = stringResource(R.string.apk_field_type), value = stringResource(build.type.labelRes()))
+        }
+        KeyValueRow(label = stringResource(R.string.apk_field_built), value = formatStamp(entry.builtAtMillis, unknown))
+        if (outputPath != null) {
+            Text(text = outputPath, style = CodeTextStyle, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        }
 
-        groups.isEmpty() && !viewModel.loading -> EmptyState(
-            icon = Icons.Filled.Refresh,
-            title = stringResource(R.string.apk_empty_title),
-            description = stringResource(R.string.apk_empty_desc),
-        )
+        val block = entry.installBlock
+        if (block != null) {
+            val checking = block == InstallBlock.NOT_CHECKED
+            Text(
+                text = stringResource(block.reasonRes()),
+                style = MaterialTheme.typography.bodySmall,
+                color = if (checking) scheme.onSurfaceVariant else scheme.error,
+            )
+            if (checking) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+        }
 
-        else -> LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            items(groups, key = { it.projectId }) { group ->
-                SectionCard(title = viewModel.projectName(group.projectId)) {
-                    Text(
-                        stringResource(R.string.apk_group_summary, group.artifacts.size, formatSize(group.totalBytes)),
-                        style = MaterialTheme.typography.bodySmall,
+        var menuOpen by remember { mutableStateOf(false) }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Button(onClick = onInstall, enabled = enabled && entry.kind == ArtifactKind.APK) {
+                Text(stringResource(R.string.apk_action_install))
+            }
+            OutlinedButton(onClick = onShare, enabled = enabled && entry.canShare) {
+                Text(stringResource(R.string.apk_action_share))
+            }
+            Box {
+                IconButton(onClick = { menuOpen = true }) {
+                    Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.apk_more))
+                }
+                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.apk_action_export)) },
+                        enabled = enabled && entry.canShare,
+                        onClick = {
+                            menuOpen = false
+                            onExport()
+                        },
                     )
-                    group.artifacts.forEach { artifact ->
-                        ArtifactRow(artifact = artifact, busy = viewModel.busyKey == artifact.key) {
-                            viewModel.open(artifact)
-                        }
-                    }
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.apk_action_details)) },
+                        enabled = enabled,
+                        onClick = {
+                            menuOpen = false
+                            onDetails()
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.apk_action_open_folder)) },
+                        enabled = outputPath != null,
+                        onClick = {
+                            menuOpen = false
+                            onOpenFolder()
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.apk_action_copy_path)) },
+                        enabled = outputPath != null,
+                        onClick = {
+                            menuOpen = false
+                            onCopyPath()
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.apk_action_delete), color = scheme.error) },
+                        enabled = enabled,
+                        onClick = {
+                            menuOpen = false
+                            onDelete()
+                        },
+                    )
                 }
             }
         }
@@ -207,282 +398,109 @@ private fun FilesTab(viewModel: ApkManagerViewModel) {
 }
 
 @Composable
-private fun ArtifactRow(artifact: ManagedArtifact, busy: Boolean, onClick: () -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(enabled = !busy, onClick = onClick)
-            .padding(vertical = 4.dp),
-        verticalArrangement = Arrangement.spacedBy(2.dp),
-    ) {
-        Text(artifact.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
-        Text(
-            artifact.kind.name + " • " + formatSize(artifact.sizeBytes) + " • " + formatStamp(artifact.modifiedMillis),
-            style = MaterialTheme.typography.bodySmall,
-        )
-        if (artifact.looksUnsigned) {
-            Text(
-                stringResource(R.string.bld_artifact_unsigned),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error,
-            )
-        }
-        if (busy) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-    }
-}
-
-// --- Tab Riwayat ---
-
-@Composable
-private fun HistoryTab(viewModel: ApkManagerViewModel) {
-    val entries = viewModel.historyEntries
-    if (entries.isEmpty()) {
-        EmptyState(
-            icon = Icons.Filled.Refresh,
-            title = stringResource(R.string.bld_history_empty),
-            description = stringResource(R.string.apk_history_desc),
-        )
-        return
-    }
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        items(entries, key = { it.record.id }) { entry -> HistoryRow(entry) }
-    }
-}
-
-@Composable
-private fun HistoryRow(entry: HistoryEntry) {
-    val record = entry.record
-    SectionCard(title = record.projectName + " • " + stringResource(record.type.labelRes())) {
-        Text(
-            stringResource(record.status.labelRes()) + " • " + formatStamp(record.startedAtMillis) + " • " +
-                formatElapsed(record.durationMillis),
-            style = MaterialTheme.typography.bodySmall,
-        )
-        entry.artifacts.forEach { item ->
-            val label = when (item.availability) {
-                ArtifactAvailability.AVAILABLE -> R.string.apk_hist_available
-                ArtifactAvailability.REPLACED -> R.string.apk_hist_replaced
-                ArtifactAvailability.DELETED -> R.string.apk_hist_deleted
-            }
-            Text(item.name + " — " + stringResource(label), style = MaterialTheme.typography.bodyMedium)
-        }
-    }
-}
-
-// --- Detail ---
-
-@Composable
-private fun DetailDialog(viewModel: ApkManagerViewModel, artifact: ManagedArtifact, onExport: () -> Unit) {
-    val context = LocalContext.current
-    val details = viewModel.selectedDetails
-    val busy = viewModel.busyKey == artifact.key
-    val rootPath = viewModel.sharedPath
-    val path = rootPath?.let { artifact.path(it) }
-    val canInstall = {
-        context.packageManager.canRequestPackageInstalls()
-    }
-
-    AlertDialog(
-        onDismissRequest = viewModel::closeDetails,
-        title = { Text(artifact.name, maxLines = 2, overflow = TextOverflow.Ellipsis) },
-        text = {
-            Column(
-                modifier = Modifier
-                    .heightIn(max = 460.dp)
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                if (viewModel.detailsLoading) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                Line(R.string.apk_d_project, viewModel.projectName(artifact.projectId))
-                Line(R.string.apk_d_type, artifact.kind.name)
-                Line(R.string.apk_d_size, formatSize(artifact.sizeBytes) + " (" + artifact.sizeBytes + " B)")
-                Line(R.string.apk_d_modified, formatStamp(artifact.modifiedMillis))
-                if (path != null) Line(R.string.apk_d_path, path, code = true)
-                if (details != null) {
-                    val validation = when (details.validation) {
-                        ArtifactValidation.VALID -> R.string.bld_artifact_valid
-                        ArtifactValidation.INVALID -> R.string.bld_artifact_invalid
-                        ArtifactValidation.MISSING -> R.string.bld_artifact_missing
-                        ArtifactValidation.NOT_CHECKED -> R.string.bld_artifact_unchecked
-                    }
-                    Line(R.string.apk_d_validation, stringResource(validation))
-                    details.sha256?.let { Line(R.string.apk_d_sha, it, code = true) }
-                    details.apk?.let { apk ->
-                        Line(R.string.apk_d_package, apk.packageName, code = true)
-                        apk.label?.let { Line(R.string.apk_d_label, it) }
-                        Line(R.string.apk_d_version, (apk.versionName ?: "-") + " (" + apk.versionCode + ")")
-                        Line(R.string.apk_d_sdk, "min " + (apk.minSdk ?: "-") + ", target " + (apk.targetSdk ?: "-"))
-                        val signers = apk.signerCount
-                        val signed = when {
-                            signers == null -> stringResource(R.string.apk_sign_unknown)
-                            signers > 0 -> stringResource(R.string.apk_sign_present, signers)
-                            else -> stringResource(R.string.apk_sign_none)
-                        }
-                        Line(R.string.apk_d_signature, signed)
-                    }
-                    if (artifact.kind == com.senzaproject.createapp.domain.builder.ArtifactKind.AAB) {
-                        Text(stringResource(R.string.apk_aab_hint), style = MaterialTheme.typography.bodySmall)
-                    }
-                    val unsigned = InstallPolicy.isUnsigned(artifact, details)
-                    if (unsigned && artifact.kind == com.senzaproject.createapp.domain.builder.ArtifactKind.APK) {
+private fun HistoryCard(items: List<ArtifactHistoryItem>) {
+    SectionCard(title = stringResource(R.string.apk_history_title)) {
+        if (items.isEmpty()) {
+            Text(stringResource(R.string.apk_history_empty), style = MaterialTheme.typography.bodyMedium)
+        } else {
+            items.take(MAX_HISTORY_SHOWN).forEach { item ->
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        text = item.record.projectName + " • " + stringResource(item.record.type.labelRes()),
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        text = formatStamp(item.record.startedAtMillis, ""),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    item.artifacts.forEach { artifact ->
                         Text(
-                            stringResource(R.string.bld_artifact_unsigned),
+                            text = artifact.name + " — " + stringResource(
+                                if (artifact.available) R.string.apk_history_available else R.string.apk_history_gone,
+                            ),
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.error,
+                            color = if (artifact.available) {
+                                MaterialTheme.colorScheme.onSurface
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
                         )
                     }
                 }
-                Text(stringResource(R.string.apk_sign_note), style = MaterialTheme.typography.bodySmall)
+            }
+        }
+    }
+}
+
+@Composable
+private fun DetailsDialog(details: ApkDetails, outputPath: String?, onClose: () -> Unit) {
+    val entry = details.entry
+    val info = details.info
+    AlertDialog(
+        onDismissRequest = onClose,
+        title = { Text(stringResource(R.string.apk_details_title, entry.name)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                KeyValueRow(label = stringResource(R.string.apk_field_size), value = formatSize(entry.sizeBytes))
+                if (info != null) {
+                    KeyValueRow(label = stringResource(R.string.apk_detail_label), value = info.label ?: "-")
+                    KeyValueRow(label = stringResource(R.string.apk_detail_package), value = info.packageName)
+                    KeyValueRow(
+                        label = stringResource(R.string.apk_detail_version),
+                        value = (info.versionName ?: "-") + " (" + info.versionCode + ")",
+                    )
+                    KeyValueRow(
+                        label = stringResource(R.string.apk_detail_sdk),
+                        value = info.minSdk.toString() + " / " + info.targetSdk,
+                    )
+                } else if (entry.kind == ArtifactKind.AAB) {
+                    Text(stringResource(R.string.apk_detail_aab_note), style = MaterialTheme.typography.bodySmall)
+                } else {
+                    Text(stringResource(R.string.apk_detail_unreadable), style = MaterialTheme.typography.bodySmall)
+                }
+                if (outputPath != null) {
+                    Text(text = outputPath, style = CodeTextStyle)
+                }
             }
         },
         confirmButton = {
-            Column(horizontalAlignment = androidx.compose.ui.Alignment.End) {
-                Row2 {
-                    OutlinedButton(
-                        onClick = { viewModel.install(artifact, canInstall()) },
-                        enabled = !busy && artifact.kind == com.senzaproject.createapp.domain.builder.ArtifactKind.APK,
-                    ) { Text(stringResource(R.string.apk_install)) }
-                    OutlinedButton(onClick = { viewModel.share(artifact) }, enabled = !busy) {
-                        Text(stringResource(R.string.apk_share))
-                    }
-                }
-                Row2 {
-                    OutlinedButton(onClick = onExport, enabled = !busy) { Text(stringResource(R.string.apk_export)) }
-                    OutlinedButton(onClick = { viewModel.askDelete(artifact) }, enabled = !busy) {
-                        Text(stringResource(R.string.apk_delete))
-                    }
-                }
-                Row2 {
-                    if (path != null) {
-                        TextButton(onClick = {
-                            copyToClipboard(context, path)
-                            Toast.makeText(context, R.string.apk_msg_path_copied, Toast.LENGTH_SHORT).show()
-                        }) { Text(stringResource(R.string.apk_copy_path)) }
-                        TextButton(onClick = { openFolder(context, rootPath, artifact) }) {
-                            Text(stringResource(R.string.apk_open_folder))
-                        }
-                    }
-                    TextButton(onClick = viewModel::closeDetails) { Text(stringResource(R.string.bld_close)) }
-                }
-            }
+            TextButton(onClick = onClose) { Text(stringResource(R.string.bld_close)) }
         },
     )
 }
 
-@Composable
-private fun Row2(content: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit) {
-    androidx.compose.foundation.layout.Row(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        content = content,
-    )
-}
+private const val MAX_HISTORY_SHOWN = 10
 
 @Composable
-private fun Line(labelRes: Int, value: String, code: Boolean = false) {
-    Column {
-        Text(stringResource(labelRes), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-        Text(value, style = if (code) CodeTextStyle else MaterialTheme.typography.bodyMedium)
+private fun validationColors(validation: ArtifactValidation): Pair<Color, Color> {
+    val scheme = MaterialTheme.colorScheme
+    return when (validation) {
+        ArtifactValidation.VALID -> Pair(scheme.tertiaryContainer, scheme.onTertiaryContainer)
+        ArtifactValidation.INVALID, ArtifactValidation.MISSING -> Pair(scheme.errorContainer, scheme.onErrorContainer)
+        ArtifactValidation.NOT_CHECKED -> Pair(scheme.surfaceVariant, scheme.onSurfaceVariant)
     }
 }
 
-// --- Aksi sistem ---
+private fun formatStamp(millis: Long, fallback: String): String =
+    if (millis <= 0L) fallback else DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(millis))
 
-private fun handleEvent(context: Context, event: ApkEvent) {
-    when (event) {
-        is ApkEvent.Install -> launchInstall(context, event.contentUri)
-        is ApkEvent.Share -> launchShare(context, event.contentUri, event.mime)
-        is ApkEvent.Blocked -> {
-            if (event.reason == InstallBlock.NEED_INSTALL_PERMISSION) {
-                Toast.makeText(context, R.string.apk_block_permission, Toast.LENGTH_LONG).show()
-                openInstallSettings(context)
-            } else {
-                val text = when (event.reason) {
-                    InstallBlock.NOT_APK -> R.string.apk_block_not_apk
-                    InstallBlock.INVALID_FILE -> R.string.apk_block_invalid
-                    InstallBlock.UNSIGNED -> R.string.apk_block_unsigned
-                    InstallBlock.NEED_INSTALL_PERMISSION -> R.string.apk_block_permission
-                }
-                Toast.makeText(context, text, Toast.LENGTH_LONG).show()
-            }
-        }
-
-        is ApkEvent.Failed -> Toast.makeText(context, event.error.messageRes(), Toast.LENGTH_LONG).show()
-        ApkEvent.NeedFolder -> Toast.makeText(context, R.string.apk_need_folder_title, Toast.LENGTH_LONG).show()
-        is ApkEvent.Exported -> Toast.makeText(
-            context,
-            context.getString(R.string.apk_msg_exported, formatSize(event.bytes)),
-            Toast.LENGTH_LONG,
-        ).show()
-
-        ApkEvent.Deleted -> Toast.makeText(context, R.string.apk_msg_deleted, Toast.LENGTH_SHORT).show()
-    }
-}
-
-private fun launchInstall(context: Context, contentUri: String) {
-    val intent = Intent(Intent.ACTION_VIEW)
-        .setDataAndType(Uri.parse(contentUri), ArtifactNames.mimeType(com.senzaproject.createapp.domain.builder.ArtifactKind.APK))
-        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
-    try {
+/** Menjalankan [intent]; false (dan [onMissing]) bila tidak ada aplikasi yang bisa menanganinya. */
+private fun startSafely(context: Context, intent: Intent, onMissing: () -> Unit): Boolean {
+    if (context !is Activity) intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    return try {
         context.startActivity(intent)
+        true
     } catch (e: ActivityNotFoundException) {
-        Toast.makeText(context, R.string.apk_msg_no_installer, Toast.LENGTH_LONG).show()
+        onMissing()
+        false
+    } catch (e: SecurityException) {
+        onMissing()
+        false
     }
 }
-
-private fun launchShare(context: Context, contentUri: String, mime: String) {
-    val send = Intent(Intent.ACTION_SEND)
-        .setType(mime)
-        .putExtra(Intent.EXTRA_STREAM, Uri.parse(contentUri))
-        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-    val chooser = Intent.createChooser(send, null).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-    try {
-        context.startActivity(chooser)
-    } catch (e: ActivityNotFoundException) {
-        Toast.makeText(context, R.string.apk_msg_no_share_target, Toast.LENGTH_LONG).show()
-    }
-}
-
-private fun openInstallSettings(context: Context) {
-    val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:" + context.packageName))
-        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-    try {
-        context.startActivity(intent)
-    } catch (e: ActivityNotFoundException) {
-        Toast.makeText(context, R.string.apk_msg_no_installer, Toast.LENGTH_LONG).show()
-    }
-}
-
-/** Membuka folder keluaran di aplikasi File; bila tidak ada yang bisa, path disalin agar bisa ditempel. */
-private fun openFolder(context: Context, rootPath: String?, artifact: ManagedArtifact) {
-    if (rootPath == null) return
-    val folder = WorkspaceLayout.outputPath(rootPath, artifact.projectId)
-    val documentId = SharedStoragePath.documentIdFor(folder)
-    if (documentId != null) {
-        val uri = DocumentsContract.buildDocumentUri(EXTERNAL_STORAGE_AUTHORITY, documentId)
-        val intent = Intent(Intent.ACTION_VIEW)
-            .setDataAndType(uri, DocumentsContract.Document.MIME_TYPE_DIR)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        try {
-            context.startActivity(intent)
-            return
-        } catch (e: ActivityNotFoundException) {
-            // jatuh ke penyalinan path
-        } catch (e: SecurityException) {
-            // jatuh ke penyalinan path
-        }
-    }
-    copyToClipboard(context, folder)
-    Toast.makeText(context, R.string.apk_msg_folder_copied, Toast.LENGTH_LONG).show()
-}
-
-private const val EXTERNAL_STORAGE_AUTHORITY = "com.android.externalstorage.documents"
-
-private fun formatStamp(millis: Long): String =
-    if (millis <= 0L) "-" else DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(millis))
 
 private fun copyToClipboard(context: Context, text: String) {
     val clipboard = context.getSystemService(ClipboardManager::class.java) ?: return

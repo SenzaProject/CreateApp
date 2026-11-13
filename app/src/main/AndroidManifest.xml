@@ -3,12 +3,12 @@
 
     <!--
         Izin sengaja minimal: tidak ada INTERNET dan tidak ada akses penyimpanan luas.
-        Tahap 5 menambahkan satu-satunya izin: menjalankan perintah di Termux (izin kustom yang
-        didefinisikan Termux; pengguna harus memberikannya, lihat docs/TAHAP-5.md).
+        - RUN_COMMAND (Tahap 5): menjalankan perintah di Termux; izin kustom milik Termux yang
+          harus diberikan pengguna (docs/TAHAP-5.md).
+        - REQUEST_INSTALL_PACKAGES (Tahap 7): hanya agar APK Manager bisa membuka pemasang paket
+          untuk APK hasil build. Android tetap meminta persetujuan pengguna per aplikasi.
     -->
     <uses-permission android:name="com.termux.permission.RUN_COMMAND" />
-
-    <!-- Tahap 7: memasang APK hasil build lewat pemasang paket sistem (pengguna harus mengizinkan sekali). -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <!-- Android 11+: tanpa ini Create App tidak bisa mendeteksi maupun menghubungi Termux. -->
@@ -35,7 +35,7 @@
             </intent-filter>
         </activity>
 
-        <!-- Membagikan/memasang salinan APK dari cache privat tanpa membuka akses penyimpanan luas. -->
+        <!-- Hanya salinan sementara APK/AAB di cache/apk-share/ yang dibagikan (lihat res/xml/file_paths.xml). -->
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

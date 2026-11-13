@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Hanya salinan sementara APK/AAB (cache/artifacts) yang boleh dibagikan lewat FileProvider. -->
+<!-- Hanya folder cache/apk-share/ yang bisa diberikan ke aplikasi lain; tidak ada path lain. -->
 <paths>
-    <cache-path name="artifacts" path="artifacts/" />
+    <cache-path
+        name="apk_share"
+        path="apk-share/" />
 </paths>

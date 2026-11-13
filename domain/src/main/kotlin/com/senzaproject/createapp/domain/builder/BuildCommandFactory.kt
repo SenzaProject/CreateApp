@@ -24,19 +24,24 @@ class BuildCommandFactory(private val helperBase64: String) {
         return install() + run(args)
     }
 
+    /**
+     * @param runToken bila diberikan, helper menulis log langsung ke `live/<id>.log` di folder bersama
+     *   dengan header berisi token ini (lihat [LiveLog]). Token harus lolos [LiveLog.isValidToken].
+     */
     fun build(
         sourcePath: String,
         projectId: String,
         type: BuildType,
         outputRootPath: String,
-        liveLogPath: String? = null,
+        runToken: String? = null,
     ): String {
+        if (runToken != null) require(LiveLog.isValidToken(runToken)) { "Token run tidak valid" }
         val args = "build" +
             " --source " + ShellQuote.quote(sourcePath) +
             " --name " + ShellQuote.quote(projectId) +
             " --task " + type.gradleTask +
             " --out " + ShellQuote.quote(outputRootPath) +
-            (if (liveLogPath == null) "" else " --live " + ShellQuote.quote(liveLogPath))
+            (if (runToken != null) " --run " + ShellQuote.quote(runToken) else "")
         return install() + run(args)
     }
 
